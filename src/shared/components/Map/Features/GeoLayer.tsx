@@ -1,80 +1,85 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Source, Layer } from 'react-map-gl/maplibre';
 import { useMapStore } from '../../../store/mapStore';
 import type { LayerProps } from 'react-map-gl/maplibre';
 
-export const GeoLayer: React.FC = () => {
-  const { geojson, currentLevel } = useMapStore();
+// Helper function extracted outside the component
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function groupDistritosByMunicipio(features: any[]) {
+  const municipios = new Map();
 
-  if (!geojson || !geojson.features || geojson.features.length === 0) {
-    return null;
-  }
-
-  // Filter valid features
-  const validFeatures = geojson.features.filter((feature: any) => {
-    if (feature._vectorTileFeature) {
-      return true;
+  features.forEach((feature) => {
+    const municipio = feature.properties.M;
+    if (!municipios.has(municipio)) {
+      municipios.set(municipio, {
+        type: 'Feature',
+        properties: {
+          M: municipio,
+          D: feature.properties.D,
+          NAM: municipio,
+          type: 'municipio'
+        },
+        geometry: {
+          type: 'MultiPolygon',
+          coordinates: []
+        }
+      });
     }
-    return (
-      feature &&
-      feature.geometry &&
-      feature.geometry.coordinates &&
-      Array.isArray(feature.geometry.coordinates) &&
-      feature.geometry.coordinates.length > 0
-    );
+
+    const municipioFeature = municipios.get(municipio);
+    if (feature.geometry.type === 'MultiPolygon') {
+      municipioFeature.geometry.coordinates.push(...feature.geometry.coordinates);
+    } else if (feature.geometry.type === 'Polygon') {
+      municipioFeature.geometry.coordinates.push([feature.geometry.coordinates]);
+    }
   });
 
-  if (validFeatures.length === 0) {
-    return null;
-  }
+  return Array.from(municipios.values()).map((feature, index) => ({
+    ...feature,
+    id: index
+  }));
+}
 
-  // Process GeoJSON based on level
-  const processedGeoJSON = {
-    type: 'FeatureCollection' as const,
-    features: currentLevel === 'departamento' 
-      ? groupDistritosByMunicipio(validFeatures)
-      : validFeatures.map((feature, index) => ({
-          ...feature,
-          id: index
-        }))
-  };
+const GeoLayerComponent: React.FC = () => {
+  const { geojson, currentLevel } = useMapStore();
 
-  function groupDistritosByMunicipio(features: any[]) {
-    const municipios = new Map();
-    
-    features.forEach((feature) => {
-      const municipio = feature.properties.M;
-      if (!municipios.has(municipio)) {
-        municipios.set(municipio, {
-          type: 'Feature',
-          properties: {
-            M: municipio,
-            D: feature.properties.D,
-            NAM: municipio,
-            type: 'municipio'
-          },
-          geometry: {
-            type: 'MultiPolygon',
-            coordinates: []
-          }
-        });
+  const processedGeoJSON = useMemo(() => {
+    if (!geojson || !geojson.features || geojson.features.length === 0) {
+      return null;
+    }
+
+    // Filter valid features
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const validFeatures = geojson.features.filter((feature: any) => {
+      if (feature._vectorTileFeature) {
+        return true;
       }
-      
-      const municipioFeature = municipios.get(municipio);
-      if (feature.geometry.type === 'MultiPolygon') {
-        municipioFeature.geometry.coordinates.push(...feature.geometry.coordinates);
-      } else if (feature.geometry.type === 'Polygon') {
-        municipioFeature.geometry.coordinates.push([feature.geometry.coordinates]);
-      }
+      return (
+        feature &&
+        feature.geometry &&
+        feature.geometry.coordinates &&
+        Array.isArray(feature.geometry.coordinates) &&
+        feature.geometry.coordinates.length > 0
+      );
     });
 
-    return Array.from(municipios.values()).map((feature, index) => ({
-      ...feature,
-      id: index
-    }));
-  }
+    if (validFeatures.length === 0) {
+      return null;
+    }
 
-  const layerStyle: LayerProps = {
+    // Process GeoJSON based on level
+    return {
+      type: 'FeatureCollection' as const,
+      features: currentLevel === 'departamento'
+        ? groupDistritosByMunicipio(validFeatures)
+        : validFeatures.map((feature, index) => ({
+            ...feature,
+            id: index
+          }))
+    };
+  }, [geojson, currentLevel]);
+
+  const layerStyle = useMemo<LayerProps>(() => ({
     id: 'distritos-fill',
     type: 'fill',
     paint: {
@@ -94,9 +99,9 @@ export const GeoLayer: React.FC = () => {
         currentLevel === 'departamento' ? 0.7 : 0.5
       ]
     }
-  };
+  }), [currentLevel]);
 
-  const outlineStyle: LayerProps = {
+  const outlineStyle = useMemo<LayerProps>(() => ({
     id: 'distritos-outline',
     type: 'line',
     paint: {
@@ -116,7 +121,11 @@ export const GeoLayer: React.FC = () => {
         currentLevel === 'departamento' ? 2 : 1
       ]
     }
-  };
+  }), [currentLevel]);
+
+  if (!processedGeoJSON) {
+    return null;
+  }
 
   return (
     <Source id="distritos-source" type="geojson" data={processedGeoJSON}>
@@ -125,3 +134,5 @@ export const GeoLayer: React.FC = () => {
     </Source>
   );
 };
+
+export const GeoLayer = React.memo(GeoLayerComponent);
