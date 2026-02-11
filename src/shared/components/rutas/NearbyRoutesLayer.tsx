@@ -9,22 +9,25 @@ export const NearbyRoutesLayer: React.FC = () => {
   const { config } = useMapStore();
   const { current: map } = useMap();
 
+  // Redondear zoom para evitar recalcular en cambios mínimos
+  const zoomLevel = Math.floor(config.zoom);
+
   // Filtrar rutas por zoom
   const visibleRoutes = useMemo(() => {
     if (!nearbyRoutes || nearbyRoutes.length === 0) return [];
     
-    const zoom = config.zoom;
-    if (zoom < 11) return nearbyRoutes.slice(0, 15);
-    if (zoom < 13) return nearbyRoutes.slice(0, 25);
-    return nearbyRoutes.slice(0, 35);
-  }, [nearbyRoutes, config.zoom]);
+    if (zoomLevel < 11) return nearbyRoutes.slice(0, 15);
+    if (zoomLevel < 13) return nearbyRoutes.slice(0, 25);
+    if (zoomLevel < 15) return nearbyRoutes.slice(0, 35);
+    return nearbyRoutes.slice(0, 50);
+  }, [nearbyRoutes, zoomLevel]);
 
   // Seleccionar LOD según zoom y crear FeatureCollection
   const routesFeatureCollection = useMemo(() => {
-    const zoom = config.zoom;
-    let lod: 'low' | 'med' | 'high' = 'high';
-    if (zoom < 11) lod = 'low';
-    else if (zoom < 13) lod = 'med';
+    let lod: 'low' | 'med' | 'high' | 'ultra' = 'ultra';
+    if (zoomLevel < 11) lod = 'low';
+    else if (zoomLevel < 13) lod = 'med';
+    else if (zoomLevel < 15) lod = 'high';
 
     let totalPoints = 0;
     const features = visibleRoutes
@@ -58,7 +61,7 @@ export const NearbyRoutesLayer: React.FC = () => {
       type: 'FeatureCollection' as const,
       features: features
     };
-  }, [visibleRoutes, config.zoom]);
+  }, [visibleRoutes, zoomLevel]);
 
   // Manejar hover con feature state
   useEffect(() => {
@@ -124,8 +127,7 @@ export const NearbyRoutesLayer: React.FC = () => {
   // Return condicional DESPUÉS de todos los hooks
   if (!showNearbyOnMap || !nearbyRoutes || nearbyRoutes.length === 0 || selectedRoute) return null;
 
-  const zoom = config.zoom;
-  const showHitbox = zoom >= 12;
+  const showHitbox = zoomLevel >= 12;
 
   return (
     <Source

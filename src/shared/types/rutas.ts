@@ -14,6 +14,7 @@ export interface RutaNearby {
     low: [number, number][];
     med: [number, number][];
     high: [number, number][];
+    ultra: [number, number][];
   };
 }
 
