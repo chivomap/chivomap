@@ -26,12 +26,14 @@ const checkNetwork = () => {
 export const getNearbyRoutes = async (
     lat: number,
     lng: number,
-    radius: number = 0.5
+    radius?: number // Opcional, undefined = búsqueda automática
 ): Promise<NearbyResponse> => {
     try {
         checkNetwork();
         
-        const url = `${API_BASE}/nearby?lat=${lat}&lng=${lng}&radius=${radius}`;
+        // Si radius es undefined, no enviar el parámetro (búsqueda automática)
+        const radiusParam = radius !== undefined ? `&radius=${radius}` : '';
+        const url = `${API_BASE}/nearby?lat=${lat}&lng=${lng}${radiusParam}`;
 
         if (isDevelopment && env.ENABLE_CONSOLE_LOGS) {
             console.log('Fetching nearby routes:', url);
@@ -66,7 +68,7 @@ export const getNearbyRoutes = async (
         errorHandler.handle(error);
         return {
             location: { lat, lng },
-            radius_km: radius,
+            radius_km: radius || 0,
             count: 0,
             routes: []
         };

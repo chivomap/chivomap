@@ -119,16 +119,16 @@ export const NearbyRoutesList: React.FC = React.memo(() => {
           <span className="text-white/60">Radio:</span>
           <input
             type="range"
-            min="0.5"
+            min="0.005"
             max="5"
-            step="0.5"
-            value={searchRadius}
+            step="0.1"
+            value={Math.max(searchRadius, 0.005)}
             onChange={handleRadiusChange}
             className="flex-1 h-1 bg-white/10 rounded-lg appearance-none cursor-pointer slider-thumb"
           />
           <span className="text-secondary font-semibold min-w-[3rem] text-right flex items-center gap-1">
             {isLoading && <BiLoaderAlt className="animate-spin" />}
-            {searchRadius} km
+            {searchRadius.toFixed(1)} km
           </span>
         </div>
       )}

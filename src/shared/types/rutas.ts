@@ -9,6 +9,13 @@ export interface RutaNearby {
   departamento: string;
   kilometros: number;
   distancia_m: number;
+  geometry?: {
+    type: 'LineString';
+    low: [number, number][];
+    med: [number, number][];
+    high: [number, number][];
+    ultra: [number, number][];
+  };
 }
 
 export interface RutaMetadata {

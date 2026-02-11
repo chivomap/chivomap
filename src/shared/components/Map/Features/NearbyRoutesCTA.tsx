@@ -32,8 +32,8 @@ export const NearbyRoutesCTA: React.FC = () => {
           
           console.log(`[${new Date().toISOString()}] 🔍 Fetching routes and paradas in parallel...`);
           Promise.all([
-            fetchNearbyRoutes(latitude, longitude, 0.5),
-            fetchNearbyParadas(latitude, longitude, 0.5)
+            fetchNearbyRoutes(latitude, longitude), // Sin radio = búsqueda automática
+            fetchNearbyParadas(latitude, longitude) // Sin radio = búsqueda automática
           ]).finally(() => {
             const totalTime = Date.now();
             console.log(`[${new Date().toISOString()}] ⏱️ Total time: ${totalTime - startTime}ms`);

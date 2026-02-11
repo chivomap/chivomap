@@ -1,101 +1,174 @@
-import React, { useEffect } from 'react';
-import { Source, Layer } from 'react-map-gl/maplibre';
+import React, { useEffect, useMemo } from 'react';
+import { Source, Layer, useMap } from 'react-map-gl/maplibre';
 import { useRutasStore } from '../../store/rutasStore';
 import { RUTA_COLORS, type SubtipoRuta } from '../../types/rutas';
-import { getRoutesBatch } from '../../services/GetRutasData';
+import { useMapStore } from '../../store/mapStore';
 
 export const NearbyRoutesLayer: React.FC = () => {
-  const { nearbyRoutes, showNearbyOnMap, selectedRoute, hoveredRoute } = useRutasStore();
-  const [loadedRoutes, setLoadedRoutes] = React.useState<Map<string, any>>(new Map());
+  const { nearbyRoutes, showNearbyOnMap, selectedRoute, hoveredRoute, setHoveredRoute } = useRutasStore();
+  const { config } = useMapStore();
+  const { current: map } = useMap();
 
-  // Cargar geometrías de rutas cercanas en lotes
+  // Redondear zoom para evitar recalcular en cambios mínimos
+  const zoomLevel = Math.floor(config.zoom);
+
+  // Filtrar rutas por zoom
+  const visibleRoutes = useMemo(() => {
+    if (!nearbyRoutes || nearbyRoutes.length === 0) return [];
+    
+    if (zoomLevel < 11) return nearbyRoutes.slice(0, 15);
+    if (zoomLevel < 13) return nearbyRoutes.slice(0, 25);
+    if (zoomLevel < 15) return nearbyRoutes.slice(0, 35);
+    return nearbyRoutes.slice(0, 50);
+  }, [nearbyRoutes, zoomLevel]);
+
+  // Seleccionar LOD según zoom y crear FeatureCollection
+  const routesFeatureCollection = useMemo(() => {
+    let lod: 'low' | 'med' | 'high' | 'ultra' = 'ultra';
+    if (zoomLevel < 11) lod = 'low';
+    else if (zoomLevel < 13) lod = 'med';
+    else if (zoomLevel < 15) lod = 'high';
+
+    let totalPoints = 0;
+    const features = visibleRoutes
+      .filter(ruta => ruta.geometry)
+      .map((ruta) => {
+        const coords = ruta.geometry![lod];
+        totalPoints += coords.length;
+        
+        const subtipo = ruta.subtipo as SubtipoRuta;
+        const color = RUTA_COLORS[subtipo] || '#6b7280';
+
+        return {
+          type: 'Feature' as const,
+          id: ruta.codigo,
+          properties: {
+            codigo: ruta.codigo,
+            nombre: ruta.nombre,
+            color: color,
+            subtipo: subtipo,
+          },
+          geometry: {
+            type: 'LineString' as const,
+            coordinates: coords
+          }
+        };
+      });
+
+    console.log(`🎨 LOD ${lod}: ${features.length} routes, ${totalPoints} points`);
+
+    return {
+      type: 'FeatureCollection' as const,
+      features: features
+    };
+  }, [visibleRoutes, zoomLevel]);
+
+  // Manejar hover con feature state
   useEffect(() => {
-    if (!showNearbyOnMap || !nearbyRoutes || nearbyRoutes.length === 0) {
-      setLoadedRoutes(new Map());
-      return;
-    }
+    if (!map) return;
 
-    let cancelled = false;
-
-    const loadRoutes = async () => {
-      const newRoutes = new Map<string, any>();
-      const BATCH_SIZE = 50;
-      
-      for (let i = 0; i < nearbyRoutes.length; i += BATCH_SIZE) {
-        if (cancelled) break;
+    const handleMouseMove = (e: any) => {
+      if (e.features && e.features.length > 0) {
+        const feature = e.features[0];
+        const codigo = feature.properties.codigo;
         
-        const batch = nearbyRoutes.slice(i, i + BATCH_SIZE);
-        const codes = batch.map(r => r.codigo);
+        if (hoveredRoute && hoveredRoute !== codigo) {
+          map.setFeatureState(
+            { source: 'nearby-routes-source', id: hoveredRoute },
+            { hover: false }
+          );
+        }
         
-        const results = await getRoutesBatch(codes);
-        
-        if (!cancelled) {
-          Object.entries(results).forEach(([code, route]) => {
-            newRoutes.set(code, route);
-          });
-          setLoadedRoutes(new Map(newRoutes));
+        if (codigo) {
+          map.setFeatureState(
+            { source: 'nearby-routes-source', id: codigo },
+            { hover: true }
+          );
+          setHoveredRoute(codigo);
         }
       }
     };
 
-    loadRoutes();
+    const handleMouseLeave = () => {
+      if (hoveredRoute) {
+        map.setFeatureState(
+          { source: 'nearby-routes-source', id: hoveredRoute },
+          { hover: false }
+        );
+        setHoveredRoute(null);
+      }
+    };
+
+    const handleMouseEnter = () => {
+      if (map.getCanvas()) {
+        map.getCanvas().style.cursor = 'pointer';
+      }
+    };
+
+    const handleMouseLeaveCanvas = () => {
+      if (map.getCanvas()) {
+        map.getCanvas().style.cursor = '';
+      }
+    };
+
+    map.on('mouseenter', 'nearby-routes-line', handleMouseEnter);
+    map.on('mousemove', 'nearby-routes-line', handleMouseMove);
+    map.on('mouseleave', 'nearby-routes-line', handleMouseLeave);
+    map.on('mouseleave', 'nearby-routes-line', handleMouseLeaveCanvas);
 
     return () => {
-      cancelled = true;
+      map.off('mouseenter', 'nearby-routes-line', handleMouseEnter);
+      map.off('mousemove', 'nearby-routes-line', handleMouseMove);
+      map.off('mouseleave', 'nearby-routes-line', handleMouseLeave);
+      map.off('mouseleave', 'nearby-routes-line', handleMouseLeaveCanvas);
     };
-  }, [nearbyRoutes, showNearbyOnMap]);
+  }, [map, hoveredRoute, setHoveredRoute]);
 
-  // Ocultar rutas cercanas cuando hay una ruta seleccionada
+  // Return condicional DESPUÉS de todos los hooks
   if (!showNearbyOnMap || !nearbyRoutes || nearbyRoutes.length === 0 || selectedRoute) return null;
 
-  // Ordenar rutas: la que tiene hover al final para que se pinte encima
-  const sortedRoutes = [...nearbyRoutes].sort((a, b) => {
-    if (a.codigo === hoveredRoute) return 1;
-    if (b.codigo === hoveredRoute) return -1;
-    return 0;
-  });
+  const showHitbox = zoomLevel >= 12;
 
   return (
-    <>
-      {sortedRoutes.map((ruta) => {
-        const fullRoute = loadedRoutes.get(ruta.codigo);
-        if (!fullRoute) return null;
-
-        const subtipo = ruta.subtipo as SubtipoRuta;
-        const color = RUTA_COLORS[subtipo] || '#6b7280';
-        const isHovered = hoveredRoute === ruta.codigo;
-        const isDimmed = hoveredRoute && hoveredRoute !== ruta.codigo;
-
-        return (
-          <Source
-            key={`nearby-${ruta.codigo}`}
-            id={`nearby-route-${ruta.codigo}`}
-            type="geojson"
-            data={fullRoute}
-          >
-            {/* Capa invisible más ancha para interacción */}
-            <Layer
-              id={`nearby-route-hitbox-${ruta.codigo}`}
-              type="line"
-              paint={{
-                'line-color': color,
-                'line-width': 12,
-                'line-opacity': 0,
-              }}
-            />
-            {/* Capa visual */}
-            <Layer
-              id={`nearby-route-line-${ruta.codigo}`}
-              type="line"
-              paint={{
-                'line-color': color,
-                'line-width': isHovered ? 5 : 3,
-                'line-opacity': isDimmed ? 0.15 : (isHovered ? 1 : 0.6),
-              }}
-            />
-          </Source>
-        );
-      })}
-    </>
+    <Source
+      id="nearby-routes-source"
+      type="geojson"
+      data={routesFeatureCollection}
+    >
+      {showHitbox && (
+        <Layer
+          id="nearby-routes-hitbox"
+          type="line"
+          paint={{
+            'line-color': ['get', 'color'],
+            'line-width': 12,
+            'line-opacity': 0,
+          }}
+        />
+      )}
+      <Layer
+        id="nearby-routes-line"
+        type="line"
+        paint={{
+          'line-color': ['get', 'color'],
+          'line-width': [
+            'case',
+            ['boolean', ['feature-state', 'hover'], false],
+            5,
+            3
+          ],
+          'line-opacity': [
+            'case',
+            ['boolean', ['feature-state', 'hover'], false],
+            1,
+            0.6
+          ],
+        }}
+        layout={{
+          'line-cap': 'round',
+          'line-join': 'round',
+        }}
+      />
+    </Source>
   );
 };

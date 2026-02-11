@@ -27,7 +27,7 @@ interface ParadasState {
   setRadius: (radius: number) => void;
 }
 
-export const useParadasStore = create<ParadasState>((set, get) => ({
+export const useParadasStore = create<ParadasState>((set) => ({
   // Initial state
   nearbyParadas: [],
   paradasByRuta: [],
@@ -42,24 +42,26 @@ export const useParadasStore = create<ParadasState>((set, get) => ({
     const startTime = Date.now();
     console.log(`[${new Date().toISOString()}] 🔄 fetchNearbyParadas started`);
     
-    const r = radius ?? get().searchRadius;
+    // Si radius es undefined, usar undefined (búsqueda automática)
+    const r = radius;
     set({ isLoading: true, error: null, searchLocation: { lat, lng } });
 
     try {
       console.log(`[${new Date().toISOString()}] 📞 Calling API getNearbyParadas...`);
       const response = await getNearbyParadas(lat, lng, r);
       const apiTime = Date.now();
-      console.log(`[${new Date().toISOString()}] ✅ API response received (took ${apiTime - startTime}ms):`, response.paradas.length, 'paradas');
+      console.log(`[${new Date().toISOString()}] ✅ API response received (took ${apiTime - startTime}ms):`, response?.paradas?.length || 0, 'paradas');
       
       set({
-        nearbyParadas: response.paradas,
-        searchRadius: response.radius_km,
+        nearbyParadas: response?.paradas || [],
+        searchRadius: response?.radius_km || 0.5, // Actualizar con el radio devuelto por el backend
         isLoading: false,
       });
       console.log(`[${new Date().toISOString()}] ✅ Store updated (total: ${Date.now() - startTime}ms)`);
     } catch (error) {
       console.error(`[${new Date().toISOString()}] ❌ fetchNearbyParadas error (took ${Date.now() - startTime}ms):`, error);
       set({
+        nearbyParadas: [], // Limpiar paradas en caso de error
         error: 'Error al buscar paradas cercanas',
         isLoading: false,
       });

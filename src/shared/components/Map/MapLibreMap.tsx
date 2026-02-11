@@ -111,11 +111,8 @@ export const MapLibreMap: React.FC = () => {
   // Update interactive layers when nearby routes change
   useEffect(() => {
     if (showNearbyOnMap && nearbyRoutes && nearbyRoutes.length > 0) {
-      const routeLayers = nearbyRoutes.flatMap(r => [
-        `nearby-route-hitbox-${r.codigo}`,
-        `nearby-route-line-${r.codigo}`
-      ]);
-      setInteractiveLayers(['distritos-fill', ...routeLayers]);
+      // Con FeatureCollection, solo hay 2 capas: hitbox y line
+      setInteractiveLayers(['distritos-fill', 'nearby-routes-hitbox', 'nearby-routes-line']);
     } else {
       setInteractiveLayers(['distritos-fill']);
     }
@@ -136,28 +133,30 @@ export const MapLibreMap: React.FC = () => {
     setOverlappingRoutes(null);
 
     const { features } = event;
-    // const { lngLat, features } = event;
     
     // Check if clicked on a nearby route (hitbox or line)
     if (features && features.length > 0) {
-      const routeFeature = features.find((f: any) => 
-        f.layer?.id?.startsWith('nearby-route-hitbox-') || 
-        f.layer?.id?.startsWith('nearby-route-line-')
+      const routeFeatures = features.filter((f: any) => 
+        f.layer?.id === 'nearby-routes-hitbox' || 
+        f.layer?.id === 'nearby-routes-line'
       );
-      if (routeFeature) {
-        const codigo = routeFeature.layer.id
-          .replace('nearby-route-hitbox-', '')
-          .replace('nearby-route-line-', '');
+      
+      if (routeFeatures.length > 0) {
+        // Obtener todos los códigos únicos de las rutas clickeadas
+        const codigos = [...new Set(routeFeatures.map((f: any) => f.properties?.codigo).filter(Boolean))] as string[];
         
-        // Seleccionar ruta (en mobile solo actualiza contenido, en desktop abre panel)
-        selectRoute(codigo);
-        return;
+        if (codigos.length > 1) {
+          // Múltiples rutas solapadas - mostrar selector
+          setOverlappingRoutes(codigos);
+          return;
+        } else if (codigos.length === 1) {
+          // Una sola ruta - seleccionarla directamente
+          selectRoute(codigos[0] as string);
+          return;
+        }
       }
     }
-    
-    // setClickPosition(lngLat);
-    // Solo agregar pin, sin abrir modal
-  }, [nearbyRoutes, selectRoute, setOverlappingRoutes]);
+  }, [selectRoute, setOverlappingRoutes]);
 
   const handleMapRightClick = useCallback((event: any) => {
     event.preventDefault();
@@ -376,6 +375,15 @@ export const MapLibreMap: React.FC = () => {
           // Solo en móvil
           if (window.innerWidth >= 640) return;
           
+          // Cancelar si hay múltiples toques (pinch-to-zoom)
+          if (e.originalEvent && e.originalEvent.touches && e.originalEvent.touches.length > 1) {
+            if (longPressTimer) {
+              clearTimeout(longPressTimer);
+              setLongPressTimer(null);
+            }
+            return;
+          }
+          
           const lngLat = e.lngLat;
           
           const timer = window.setTimeout(() => {
@@ -470,7 +478,7 @@ export const MapLibreMap: React.FC = () => {
               <button
                 onClick={() => {
                   setPin(contextMenu.lngLat); // Agregar pin
-                  openNearbyRoutes(contextMenu.lngLat.lat, contextMenu.lngLat.lng, 0.5);
+                  openNearbyRoutes(contextMenu.lngLat.lat, contextMenu.lngLat.lng); // Sin radio = búsqueda automática
                   updateConfig({ ...config, center: { lat: contextMenu.lngLat.lat, lng: contextMenu.lngLat.lng }, zoom: 14 });
                   setContextMenu(null);
                 }}

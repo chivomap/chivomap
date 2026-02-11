@@ -79,24 +79,28 @@ export const useRutasStore = create<RutasState>((set, get) => ({
         const startTime = Date.now();
         console.log(`[${new Date().toISOString()}] 🔄 fetchNearbyRoutes started`);
         
-        const r = radius ?? get().searchRadius;
+        // Si radius es undefined, usar undefined (búsqueda automática)
+        // Si radius es un número, usarlo
+        const r = radius;
         set({ isLoading: true, error: null, searchLocation: { lat, lng } });
 
         try {
             console.log(`[${new Date().toISOString()}] 📞 Calling API getNearbyRoutes...`);
             const response = await getNearbyRoutes(lat, lng, r);
             const apiTime = Date.now();
-            console.log(`[${new Date().toISOString()}] ✅ API response received (took ${apiTime - startTime}ms):`, response.routes.length, 'routes');
+            console.log(`[${new Date().toISOString()}] ✅ API response received (took ${apiTime - startTime}ms):`, response?.routes?.length || 0, 'routes');
+            console.log(`[${new Date().toISOString()}] 📏 Backend returned radius:`, response?.radius_km, 'km');
             
             set({
-                nearbyRoutes: response.routes,
-                searchRadius: response.radius_km,
+                nearbyRoutes: response?.routes || [], // Siempre actualizar, incluso si está vacío
+                searchRadius: response?.radius_km || 0.5, // Actualizar con el radio devuelto por el backend
                 isLoading: false
             });
-            console.log(`[${new Date().toISOString()}] ✅ Store updated (total: ${Date.now() - startTime}ms)`);
+            console.log(`[${new Date().toISOString()}] ✅ Store updated with radius:`, response?.radius_km || 0.5, 'km (total:', Date.now() - startTime, 'ms)');
         } catch (error) {
             console.error(`[${new Date().toISOString()}] ❌ fetchNearbyRoutes error (took ${Date.now() - startTime}ms):`, error);
             set({
+                nearbyRoutes: [], // Limpiar rutas en caso de error
                 error: 'Error al buscar rutas cercanas',
                 isLoading: false
             });

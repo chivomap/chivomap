@@ -98,8 +98,8 @@ export const MapControls: React.FC = () => {
           const mapTime = Date.now();
           console.log(`[${new Date().toISOString()}] ✅ Map updated (took ${mapTime - geoTime}ms)`);
           
-          console.log(`[${new Date().toISOString()}] 🔍 Fetching nearby routes (radius: 0.5km)...`);
-          openNearbyRoutes(latitude, longitude, 0.5);
+          console.log(`[${new Date().toISOString()}] 🔍 Fetching nearby routes (automatic radius)...`);
+          openNearbyRoutes(latitude, longitude); // Sin radio = búsqueda automática
           const totalTime = Date.now();
           console.log(`[${new Date().toISOString()}] ⏱️ Total time: ${totalTime - startTime}ms`);
         },
@@ -134,7 +134,7 @@ export const MapControls: React.FC = () => {
 
   const handleSearchNearbyPin = () => {
     if (pin) {
-      openNearbyRoutes(pin.lat, pin.lng, 0.5);
+      openNearbyRoutes(pin.lat, pin.lng); // Sin radio = búsqueda automática
       setShowPinMenu(false);
     }
   };
