@@ -1,52 +1,22 @@
-import React, { useEffect, useMemo, useState, useCallback } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { Source, Layer, useMap } from 'react-map-gl/maplibre';
 import { useRutasStore } from '../../store/rutasStore';
 import { RUTA_COLORS, type SubtipoRuta } from '../../types/rutas';
 import { useMapStore } from '../../store/mapStore';
 import { getLODLevel, getMaxRoutesForZoom } from '../../config/lod';
-import { throttle } from '../../utils/timing';
 
 export const NearbyRoutesLayer: React.FC = () => {
   const { nearbyRoutes, showNearbyOnMap, selectedRoute, hoveredRoute, setHoveredRoute } = useRutasStore();
   const { config } = useMapStore();
   const { current: map } = useMap();
-  
-  // Estado para trackear cambios de viewport (con throttle)
-  const [viewportVersion, setViewportVersion] = useState(0);
 
   // Obtener nivel LOD y máximo de rutas desde config
   const lodLevel = getLODLevel(config.zoom);
   const maxRoutes = getMaxRoutesForZoom(config.zoom);
 
-  // Throttle para actualizar viewport durante movimiento
-  const updateViewport = useCallback(
-    throttle(() => {
-      setViewportVersion(v => v + 1);
-    }, 250), // Actualiza cada 250ms durante movimiento
-    []
-  );
-
-  // Listener para movimiento del mapa
-  useEffect(() => {
-    if (!map) return;
-
-    const handleMove = () => {
-      updateViewport();
-    };
-
-    map.on('move', handleMove);
-    
-    return () => {
-      map.off('move', handleMove);
-    };
-  }, [map, updateViewport]);
-
-  // Filtrar rutas por zoom - priorizar las más cercanas
+  // Filtrar rutas por zoom
   const visibleRoutes = useMemo(() => {
     if (!nearbyRoutes || nearbyRoutes.length === 0) return [];
-    
-    // Las rutas ya vienen ordenadas por distancia desde el backend
-    // Solo tomamos las más cercanas según el nivel de zoom
     return nearbyRoutes.slice(0, maxRoutes);
   }, [nearbyRoutes, maxRoutes]);
 
@@ -84,7 +54,7 @@ export const NearbyRoutesLayer: React.FC = () => {
       type: 'FeatureCollection' as const,
       features: features
     };
-  }, [visibleRoutes, lodLevel, viewportVersion]); // Incluye viewportVersion para forzar actualización
+  }, [visibleRoutes, lodLevel]);
 
   // Manejar hover con feature state
   useEffect(() => {
