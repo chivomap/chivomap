@@ -27,7 +27,7 @@ interface ParadasState {
   setRadius: (radius: number) => void;
 }
 
-export const useParadasStore = create<ParadasState>((set, get) => ({
+export const useParadasStore = create<ParadasState>((set) => ({
   // Initial state
   nearbyParadas: [],
   paradasByRuta: [],
@@ -42,7 +42,8 @@ export const useParadasStore = create<ParadasState>((set, get) => ({
     const startTime = Date.now();
     console.log(`[${new Date().toISOString()}] 🔄 fetchNearbyParadas started`);
     
-    const r = radius ?? get().searchRadius;
+    // Si radius es undefined, usar undefined (búsqueda automática)
+    const r = radius;
     set({ isLoading: true, error: null, searchLocation: { lat, lng } });
 
     try {
@@ -53,7 +54,7 @@ export const useParadasStore = create<ParadasState>((set, get) => ({
       
       set({
         nearbyParadas: response?.paradas || [],
-        searchRadius: response?.radius_km || r,
+        searchRadius: response?.radius_km || 0.5, // Actualizar con el radio devuelto por el backend
         isLoading: false,
       });
       console.log(`[${new Date().toISOString()}] ✅ Store updated (total: ${Date.now() - startTime}ms)`);

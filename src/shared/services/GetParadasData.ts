@@ -7,9 +7,11 @@ const API_BASE = env.API_URL;
 export const getNearbyParadas = async (
   lat: number,
   lng: number,
-  radius: number = 0.5
+  radius?: number // Opcional, undefined = búsqueda automática
 ): Promise<NearbyParadasResponse> => {
-  const url = `${API_BASE}/paradas/nearby?lat=${lat}&lng=${lng}&radius=${radius}`;
+  // Si radius es undefined, no enviar el parámetro (búsqueda automática)
+  const radiusParam = radius !== undefined ? `&radius=${radius}` : '';
+  const url = `${API_BASE}/paradas/nearby?lat=${lat}&lng=${lng}${radiusParam}`;
   const response = await fetch(url);
   
   if (!response.ok) {

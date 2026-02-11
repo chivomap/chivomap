@@ -479,7 +479,7 @@ export const MapLibreMap: React.FC = () => {
               <button
                 onClick={() => {
                   setPin(contextMenu.lngLat); // Agregar pin
-                  openNearbyRoutes(contextMenu.lngLat.lat, contextMenu.lngLat.lng, 0.5);
+                  openNearbyRoutes(contextMenu.lngLat.lat, contextMenu.lngLat.lng); // Sin radio = búsqueda automática
                   updateConfig({ ...config, center: { lat: contextMenu.lngLat.lat, lng: contextMenu.lngLat.lng }, zoom: 14 });
                   setContextMenu(null);
                 }}
