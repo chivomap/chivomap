@@ -376,6 +376,15 @@ export const MapLibreMap: React.FC = () => {
           // Solo en móvil
           if (window.innerWidth >= 640) return;
           
+          // Cancelar si hay múltiples toques (pinch-to-zoom)
+          if (e.originalEvent && e.originalEvent.touches && e.originalEvent.touches.length > 1) {
+            if (longPressTimer) {
+              clearTimeout(longPressTimer);
+              setLongPressTimer(null);
+            }
+            return;
+          }
+          
           const lngLat = e.lngLat;
           
           const timer = window.setTimeout(() => {

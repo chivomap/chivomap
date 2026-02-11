@@ -49,11 +49,11 @@ export const useParadasStore = create<ParadasState>((set, get) => ({
       console.log(`[${new Date().toISOString()}] 📞 Calling API getNearbyParadas...`);
       const response = await getNearbyParadas(lat, lng, r);
       const apiTime = Date.now();
-      console.log(`[${new Date().toISOString()}] ✅ API response received (took ${apiTime - startTime}ms):`, response.paradas.length, 'paradas');
+      console.log(`[${new Date().toISOString()}] ✅ API response received (took ${apiTime - startTime}ms):`, response?.paradas?.length || 0, 'paradas');
       
       set({
-        nearbyParadas: response.paradas,
-        searchRadius: response.radius_km,
+        nearbyParadas: response?.paradas || [],
+        searchRadius: response?.radius_km || r,
         isLoading: false,
       });
       console.log(`[${new Date().toISOString()}] ✅ Store updated (total: ${Date.now() - startTime}ms)`);
