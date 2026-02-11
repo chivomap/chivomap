@@ -7,21 +7,21 @@ export const LOD_CONFIG = {
     low: {
       name: 'low' as const,
       zoomRange: [0, 11] as const,
-      maxRoutes: 15,
+      maxRoutes: 50, // Aumentado para mostrar todas las rutas
       label: 'Vista general',
       description: 'Vista alejada de toda la ciudad'
     },
     med: {
       name: 'med' as const,
       zoomRange: [11, 13] as const,
-      maxRoutes: 25,
+      maxRoutes: 50, // Aumentado para mostrar todas las rutas
       label: 'Vista media',
       description: 'Vista de varios barrios'
     },
     high: {
       name: 'high' as const,
       zoomRange: [13, 15] as const,
-      maxRoutes: 35,
+      maxRoutes: 50, // Aumentado para mostrar todas las rutas
       label: 'Vista detallada',
       description: 'Vista de pocas cuadras'
     },

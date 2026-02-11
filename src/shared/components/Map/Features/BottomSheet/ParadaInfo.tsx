@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { BiX } from 'react-icons/bi';
 import { useParadasStore } from '../../../../store/paradasStore';
 import { useRutasStore } from '../../../../store/rutasStore';
+import { useMapStore } from '../../../../store/mapStore';
 import type { Parada } from '../../../../types/paradas';
 
 interface ParadaInfoProps {
@@ -13,6 +14,29 @@ export const ParadaInfo: React.FC<ParadaInfoProps> = ({ parada }) => {
   const nearbyParadas = useParadasStore(state => state.nearbyParadas);
   const nearbyRoutes = useRutasStore(state => state.nearbyRoutes);
   const selectRoute = useRutasStore(state => state.selectRoute);
+  const { saveViewport, restoreViewport, updateConfig } = useMapStore();
+  const hasZoomedRef = useRef(false);
+
+  // Centrar mapa en la parada cuando se monta el componente
+  useEffect(() => {
+    if (parada && !hasZoomedRef.current) {
+      updateConfig({
+        center: { lat: parada.latitud, lng: parada.longitud },
+        zoom: 16
+      });
+      hasZoomedRef.current = true;
+    }
+  }, [parada, updateConfig]);
+
+  const handleClose = () => {
+    setSelectedParada(null);
+    restoreViewport();
+  };
+
+  const handleRouteClick = (rutaCodigo: string) => {
+    saveViewport();
+    selectRoute(rutaCodigo);
+  };
 
   // Encontrar todas las rutas que pasan por esta parada (mismo nombre)
   const rutasEnParada = nearbyParadas
@@ -69,7 +93,7 @@ export const ParadaInfo: React.FC<ParadaInfoProps> = ({ parada }) => {
           </div>
         </div>
         <button
-          onClick={() => setSelectedParada(null)}
+          onClick={handleClose}
           className="p-1.5 hover:bg-red-500/10 rounded-lg transition-colors text-red-400 hover:text-red-300"
           title="Cerrar"
         >
@@ -99,7 +123,7 @@ export const ParadaInfo: React.FC<ParadaInfoProps> = ({ parada }) => {
             {rutasEnParada.map((r, idx) => (
               <button
                 key={`${r.ruta}-${r.codigo}-${idx}`}
-                onClick={() => selectRoute(r.ruta)}
+                onClick={() => handleRouteClick(r.ruta)}
                 className="w-full text-left p-2.5 bg-white/5 hover:bg-secondary/10 rounded-lg border border-white/10 hover:border-secondary/30 transition-all group"
               >
                 <div className="flex items-center justify-between">

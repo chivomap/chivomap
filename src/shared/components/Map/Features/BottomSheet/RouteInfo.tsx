@@ -1,32 +1,51 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { BiMap, BiRuler, BiRightArrowAlt, BiX, BiBus } from 'react-icons/bi';
-import { useMap } from 'react-map-gl/maplibre';
 import { useRutasStore } from '../../../../store/rutasStore';
 import { useParadasStore } from '../../../../store/paradasStore';
+import { useMapStore } from '../../../../store/mapStore';
 import { RouteCodeBadge } from '../../../rutas/RouteCodeBadge';
 import type { RutaFeature } from '../../../../types/rutas';
+import * as turf from '@turf/turf';
 
 interface RouteInfoProps {
   route: RutaFeature;
 }
 
 export const RouteInfo: React.FC<RouteInfoProps> = React.memo(({ route }) => {
-  const { current: map } = useMap();
   const clearSelectedRoute = useRutasStore(state => state.clearSelectedRoute);
   const paradasByRuta = useParadasStore(state => state.paradasByRuta);
   const setSelectedParada = useParadasStore(state => state.setSelectedParada);
+  const { saveViewport, restoreViewport, updateConfig } = useMapStore();
   const props = route.properties;
+  const hasZoomedRef = useRef(false);
+
+  // Centrar mapa en la ruta cuando se monta el componente
+  useEffect(() => {
+    if (route && !hasZoomedRef.current) {
+      try {
+        const bbox = turf.bbox(route);
+        const center = turf.center(turf.bboxPolygon(bbox));
+        const [lng, lat] = center.geometry.coordinates;
+        
+        updateConfig({
+          center: { lat, lng },
+          zoom: 13
+        });
+        hasZoomedRef.current = true;
+      } catch (error) {
+        console.error('Error centering route:', error);
+      }
+    }
+  }, [route, updateConfig]);
+
+  const handleClose = () => {
+    clearSelectedRoute();
+    restoreViewport();
+  };
 
   const handleParadaClick = (parada: any) => {
+    saveViewport();
     setSelectedParada(parada);
-    // Centrar mapa en la parada
-    if (map) {
-      map.flyTo({
-        center: [parada.longitud, parada.latitud],
-        zoom: 16,
-        duration: 1000
-      });
-    }
   };
 
   return (
@@ -44,7 +63,7 @@ export const RouteInfo: React.FC<RouteInfoProps> = React.memo(({ route }) => {
           </div>
         </div>
         <button
-          onClick={clearSelectedRoute}
+          onClick={handleClose}
           className="p-1.5 hover:bg-red-500/10 rounded-lg transition-colors text-red-400 hover:text-red-300"
           title="Cerrar"
         >
