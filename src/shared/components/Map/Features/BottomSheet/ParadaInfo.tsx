@@ -19,11 +19,14 @@ export const ParadaInfo: React.FC<ParadaInfoProps> = ({ parada }) => {
     .filter(p => p.nombre === parada.nombre)
     .map(p => {
       const rutaInfo = nearbyRoutes.find(r => r.codigo === p.ruta);
+      // Fallback: si no encontramos la ruta en nearbyRoutes, usar código formateado
+      const nombreDisplay = rutaInfo?.nombre || `Ruta ${p.ruta}`;
       return { 
         ruta: p.ruta, 
-        nombre: rutaInfo?.nombre || p.ruta,
+        nombre: nombreDisplay,
         codigo: p.codigo, 
-        parada: p 
+        parada: p,
+        encontrada: !!rutaInfo // Para saber si está en nearbyRoutes
       };
     })
     .reduce((acc, curr) => {
@@ -31,7 +34,7 @@ export const ParadaInfo: React.FC<ParadaInfoProps> = ({ parada }) => {
         acc.push(curr);
       }
       return acc;
-    }, [] as { ruta: string; nombre: string; codigo: string; parada: Parada }[])
+    }, [] as { ruta: string; nombre: string; codigo: string; parada: Parada; encontrada: boolean }[])
     .sort((a, b) => {
       // Ordenar por distancia si hay nearbyRoutes
       const routeA = nearbyRoutes.find(r => r.codigo === a.ruta);
@@ -40,6 +43,9 @@ export const ParadaInfo: React.FC<ParadaInfoProps> = ({ parada }) => {
       if (routeA && routeB) {
         return routeA.distancia_m - routeB.distancia_m;
       }
+      // Poner rutas encontradas primero
+      if (a.encontrada && !b.encontrada) return -1;
+      if (!a.encontrada && b.encontrada) return 1;
       return 0;
     });
 
@@ -84,7 +90,7 @@ export const ParadaInfo: React.FC<ParadaInfoProps> = ({ parada }) => {
         </div>
       </div>
 
-      {rutasEnParada.length > 0 && (
+      {rutasEnParada.length > 0 ? (
         <div className="space-y-2">
           <h4 className="font-semibold text-white text-sm">
             Rutas que pasan aquí ({rutasEnParada.length})
@@ -98,15 +104,31 @@ export const ParadaInfo: React.FC<ParadaInfoProps> = ({ parada }) => {
               >
                 <div className="flex items-center justify-between">
                   <span className="font-semibold text-white text-sm group-hover:text-secondary transition-colors">
-                    Ruta {r.nombre}
+                    {r.nombre}
                   </span>
-                  <span className="text-xs text-white/50">
-                    {r.codigo === 'I' ? 'Ida' : 'Regreso'}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    {!r.encontrada && (
+                      <span className="text-xs text-yellow-400/70" title="Ruta fuera del área de búsqueda">
+                        ⚠
+                      </span>
+                    )}
+                    <span className="text-xs text-white/50">
+                      {r.codigo === 'I' ? 'Ida' : 'Regreso'}
+                    </span>
+                  </div>
                 </div>
               </button>
             ))}
           </div>
+        </div>
+      ) : (
+        <div className="p-4 bg-white/5 rounded-lg border border-white/10 text-center">
+          <p className="text-sm text-white/60">
+            No hay rutas registradas para esta parada
+          </p>
+          <p className="text-xs text-white/40 mt-1">
+            Intenta buscar rutas cercanas en el mapa
+          </p>
         </div>
       )}
     </div>
