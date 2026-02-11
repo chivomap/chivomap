@@ -89,7 +89,7 @@ export const useRutasStore = create<RutasState>((set, get) => ({
             console.log(`[${new Date().toISOString()}] ✅ API response received (took ${apiTime - startTime}ms):`, response.routes.length, 'routes');
             
             set({
-                nearbyRoutes: response.routes,
+                nearbyRoutes: response.routes || [], // Siempre actualizar, incluso si está vacío
                 searchRadius: response.radius_km,
                 isLoading: false
             });
@@ -97,6 +97,7 @@ export const useRutasStore = create<RutasState>((set, get) => ({
         } catch (error) {
             console.error(`[${new Date().toISOString()}] ❌ fetchNearbyRoutes error (took ${Date.now() - startTime}ms):`, error);
             set({
+                nearbyRoutes: [], // Limpiar rutas en caso de error
                 error: 'Error al buscar rutas cercanas',
                 isLoading: false
             });

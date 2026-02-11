@@ -60,6 +60,7 @@ export const useParadasStore = create<ParadasState>((set, get) => ({
     } catch (error) {
       console.error(`[${new Date().toISOString()}] ❌ fetchNearbyParadas error (took ${Date.now() - startTime}ms):`, error);
       set({
+        nearbyParadas: [], // Limpiar paradas en caso de error
         error: 'Error al buscar paradas cercanas',
         isLoading: false,
       });
