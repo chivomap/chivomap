@@ -139,6 +139,17 @@ export const useBottomSheet = () => {
     }
   };
 
+  const openTripPlanner = () => {
+    // Limpiar otros contenidos
+    clearSelectedRoute();
+    clearNearbyRoutes();
+    setSelectedInfo(null);
+    
+    // Abrir el sheet
+    setSheetState('half');
+    setActiveTab('tripPlanner');
+  };
+
   return {
     // Estado
     isOpen,
@@ -154,5 +165,6 @@ export const useBottomSheet = () => {
     openRoute,
     openNearbyRoutes,
     openAnnotations,
+    openTripPlanner,
   };
 };

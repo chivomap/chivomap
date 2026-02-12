@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import { BiX as ClearIcon, BiBus, BiMap, BiLoaderAlt } from "react-icons/bi";
-import { MdDirections } from "react-icons/md";
 import { FaBus } from "react-icons/fa";
 import Fuse from 'fuse.js';
 import { useMapStore } from '../../shared/store/mapStore';
@@ -8,7 +7,6 @@ import { usePinStore } from '../../shared/store/pinStore';
 import { getQueryData } from '../../shared/services/GetQueryData';
 import { useRutasStore } from '../../shared/store/rutasStore';
 import { TextCarousel } from './TextCarrusel';
-import { TripPlanner } from './TripPlanner';
 import { useLayoutStore } from '../../shared/store/layoutStore';
 import { useErrorStore } from '../../shared/store/errorStore';
 import { errorHandler } from '../../shared/errors/ErrorHandler';
@@ -24,7 +22,6 @@ export const Search: React.FC = () => {
   const { setSelectedResult, clearSelectedResult } = usePlaceSearchStore();
   const [placeResults, setPlaceResults] = useState<SearchResult[]>([]);
   const [isSearchingPlaces, setIsSearchingPlaces] = useState(false);
-  const [showTripPlanner, setShowTripPlanner] = useState(false);
   const debounceTimer = useRef<ReturnType<typeof setTimeout>>();
 
   const searchContainerRef = useRef<HTMLFormElement>(null);
@@ -232,17 +229,6 @@ export const Search: React.FC = () => {
       >
         {search && (
           <div className="w-full relative flex flex-col gap-2">
-            {!showTripPlanner && !inputValue && (
-              <button
-                type="button"
-                onClick={() => setShowTripPlanner(true)}
-                className="w-full py-3 px-4 bg-secondary hover:bg-secondary/80 text-white font-semibold rounded-xl shadow-lg flex items-center justify-center gap-2 transition-all hover:scale-[1.02] pointer-events-auto"
-              >
-                <MdDirections size={24} />
-                Planificar ruta
-              </button>
-            )}
-
             <div className="relative w-full group">
               <div className={`
                 absolute inset-0 bg-secondary/20 rounded-xl blur transition-opacity duration-300
@@ -401,8 +387,6 @@ export const Search: React.FC = () => {
 
         {department && <TextCarousel />}
       </form>
-      
-      {showTripPlanner && <TripPlanner onClose={() => setShowTripPlanner(false)} />}
     </>
   );
 };
