@@ -27,13 +27,13 @@ export const MapScale: React.FC = () => {
       setScale(scaleText);
     };
 
-    map.on('zoom', updateScale);
-    map.on('move', updateScale);
+    map.on('zoomend', updateScale);
+    map.on('moveend', updateScale);
     updateScale();
 
     return () => {
-      map.off('zoom', updateScale);
-      map.off('move', updateScale);
+      map.off('zoomend', updateScale);
+      map.off('moveend', updateScale);
     };
   }, [map]);
 

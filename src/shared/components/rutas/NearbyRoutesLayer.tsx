@@ -56,9 +56,13 @@ export const NearbyRoutesLayer: React.FC = () => {
     };
   }, [visibleRoutes, lodLevel]);
 
-  // Manejar hover con feature state
+  // Manejar hover con feature state (solo en desktop)
   useEffect(() => {
     if (!map) return;
+    
+    // Deshabilitar hover en mobile para evitar problemas de performance
+    const isMobile = window.innerWidth < 768;
+    if (isMobile) return;
 
     const handleMouseMove = (e: any) => {
       if (e.features && e.features.length > 0) {

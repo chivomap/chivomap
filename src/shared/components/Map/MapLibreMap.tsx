@@ -211,7 +211,7 @@ export const MapLibreMap: React.FC = () => {
         style={{ width: '100%', height: '100%' }}
         mapStyle={mapStyle}
         onLoad={handleMapLoad}
-        onMove={handleViewStateChange}
+        onMoveEnd={handleViewStateChange}
         onClick={(event) => {
           // Check for nearby routes click
           if (event.features && event.features.length > 0) {
@@ -253,8 +253,9 @@ export const MapLibreMap: React.FC = () => {
           handleMapClick(event);
         }}
         onMouseMove={(event) => {
-          // En mobile, no mostrar tooltips
+          // En mobile, deshabilitar completamente para evitar lag
           const isMobile = window.innerWidth < 768;
+          if (isMobile) return;
           
           if (event.features && event.features.length > 0) {
             // Check for nearby routes hover (multiple possible)
@@ -275,21 +276,19 @@ export const MapLibreMap: React.FC = () => {
               if (routeCodes.length > 1) {
                 // Multiple routes - show summary
                 setHoveredRoute(null);
-                if (!isMobile) {
-                  const rutas = routeCodes.map(code => nearbyRoutes.find(r => r.codigo === code)).filter(Boolean) as typeof nearbyRoutes;
-                  setRouteHover({
-                    codigo: 'multiple',
-                    nombre: `${routeCodes.length} rutas`,
-                    tipo: rutas.map(r => r.nombre).join(', '),
-                    subtipo: '',
-                    sentido: '',
-                    departamento: '',
-                    kilometros: 0,
-                    distancia_m: 0,
-                    x: event.point.x,
-                    y: event.point.y
-                  });
-                }
+                const rutas = routeCodes.map(code => nearbyRoutes.find(r => r.codigo === code)).filter(Boolean) as typeof nearbyRoutes;
+                setRouteHover({
+                  codigo: 'multiple',
+                  nombre: `${routeCodes.length} rutas`,
+                  tipo: rutas.map(r => r.nombre).join(', '),
+                  subtipo: '',
+                  sentido: '',
+                  departamento: '',
+                  kilometros: 0,
+                  distancia_m: 0,
+                  x: event.point.x,
+                  y: event.point.y
+                });
                 return;
               }
               
@@ -303,21 +302,18 @@ export const MapLibreMap: React.FC = () => {
                 // Actualizar hover state
                 setHoveredRoute(ruta.codigo);
                 
-                // Solo mostrar tooltip en desktop
-                if (!isMobile) {
-                  setRouteHover({
-                    codigo: ruta.codigo,
-                    nombre: ruta.nombre,
-                    tipo: ruta.tipo,
-                    subtipo: ruta.subtipo,
-                    sentido: ruta.sentido,
-                    departamento: ruta.departamento,
-                    kilometros: ruta.kilometros,
-                    distancia_m: ruta.distancia_m,
-                    x: event.point.x,
-                    y: event.point.y
-                  });
-                }
+                setRouteHover({
+                  codigo: ruta.codigo,
+                  nombre: ruta.nombre,
+                  tipo: ruta.tipo,
+                  subtipo: ruta.subtipo,
+                  sentido: ruta.sentido,
+                  departamento: ruta.departamento,
+                  kilometros: ruta.kilometros,
+                  distancia_m: ruta.distancia_m,
+                  x: event.point.x,
+                  y: event.point.y
+                });
                 return;
               }
             }
