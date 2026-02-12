@@ -5,7 +5,7 @@ import { useParadasStore } from '../../../../store/paradasStore';
 import { useMapStore } from '../../../../store/mapStore';
 import { RouteCodeBadge } from '../../../rutas/RouteCodeBadge';
 import type { RutaFeature } from '../../../../types/rutas';
-import * as turf from '@turf/turf';
+import { bbox as turfBbox, bboxPolygon, center as turfCenter } from '@turf/turf';
 
 interface RouteInfoProps {
   route: RutaFeature;
@@ -23,8 +23,8 @@ export const RouteInfo: React.FC<RouteInfoProps> = React.memo(({ route }) => {
   useEffect(() => {
     if (route && !hasZoomedRef.current) {
       try {
-        const bbox = turf.bbox(route);
-        const center = turf.center(turf.bboxPolygon(bbox));
+        const bbox = turfBbox(route);
+        const center = turfCenter(bboxPolygon(bbox));
         const [lng, lat] = center.geometry.coordinates;
         
         updateConfig({
