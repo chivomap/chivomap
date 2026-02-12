@@ -11,6 +11,7 @@ import { useThemeStore } from '../../store/themeStore';
 
 import { MapControls, MapMarker, MapScale, MapStyleSelector, GeoLayer, GeoDistritos } from './Features';
 import { UserLocationMarker } from './Features/UserLocationMarker';
+import { TripPlannerMapListener } from './Features/TripPlannerMapListener';
 import { RouteLayer, SearchRadiusLayer, NearbyRoutesLayer } from '../rutas';
 import { ParadasLayer } from '../paradas/ParadasLayer';
 import 'maplibre-gl/dist/maplibre-gl.css';
@@ -424,6 +425,7 @@ export const MapLibreMap: React.FC = () => {
         />
         <MapControls />
         <MapScale />
+        <TripPlannerMapListener />
         {mapReady && (
           <>
             <GeoLayer />

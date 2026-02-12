@@ -65,14 +65,15 @@ export const NearbyRoutesLayer: React.FC = () => {
         const feature = e.features[0];
         const codigo = feature.properties.codigo;
         
-        if (hoveredRoute && hoveredRoute !== codigo) {
-          map.setFeatureState(
-            { source: 'nearby-routes-source', id: hoveredRoute },
-            { hover: false }
-          );
-        }
-        
-        if (codigo) {
+        // Solo actualizar si cambió la ruta
+        if (codigo !== hoveredRoute) {
+          if (hoveredRoute) {
+            map.setFeatureState(
+              { source: 'nearby-routes-source', id: hoveredRoute },
+              { hover: false }
+            );
+          }
+          
           map.setFeatureState(
             { source: 'nearby-routes-source', id: codigo },
             { hover: true }
