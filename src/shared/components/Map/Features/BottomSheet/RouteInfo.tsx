@@ -5,7 +5,7 @@ import { useParadasStore } from '../../../../store/paradasStore';
 import { useMapStore } from '../../../../store/mapStore';
 import { RouteCodeBadge } from '../../../rutas/RouteCodeBadge';
 import type { RutaFeature } from '../../../../types/rutas';
-import * as turf from '@turf/turf';
+import { bbox, bboxPolygon, center } from '@turf/turf';
 
 interface RouteInfoProps {
   route: RutaFeature;
@@ -15,7 +15,9 @@ export const RouteInfo: React.FC<RouteInfoProps> = React.memo(({ route }) => {
   const clearSelectedRoute = useRutasStore(state => state.clearSelectedRoute);
   const paradasByRuta = useParadasStore(state => state.paradasByRuta);
   const setSelectedParada = useParadasStore(state => state.setSelectedParada);
-  const { saveViewport, restoreViewport, updateConfig } = useMapStore();
+  const saveViewport = useMapStore(state => state.saveViewport);
+  const restoreViewport = useMapStore(state => state.restoreViewport);
+  const updateConfig = useMapStore(state => state.updateConfig);
   const props = route.properties;
   const hasZoomedRef = useRef(false);
 
@@ -23,9 +25,9 @@ export const RouteInfo: React.FC<RouteInfoProps> = React.memo(({ route }) => {
   useEffect(() => {
     if (route && !hasZoomedRef.current) {
       try {
-        const bbox = turf.bbox(route);
-        const center = turf.center(turf.bboxPolygon(bbox));
-        const [lng, lat] = center.geometry.coordinates;
+        const routeBbox = bbox(route);
+        const routeCenter = center(bboxPolygon(routeBbox));
+        const [lng, lat] = routeCenter.geometry.coordinates;
         
         updateConfig({
           center: { lat, lng },
