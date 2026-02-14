@@ -1,6 +1,6 @@
 'use client';
 import { create } from 'zustand';
-import * as turf from '@turf/turf';
+import { bbox as turfBbox, bboxPolygon as turfBboxPolygon, center as turfCenter, distance as turfDistance, point as turfPoint } from '@turf/turf';
 import { LngLat } from 'maplibre-gl';
 import { FeatureCollection, MultiPolygon } from 'geojson';
 import { FeatureProperties } from '../types/feature-propoerties';
@@ -88,14 +88,14 @@ export const useMapStore = create<MapState>((set, get) => ({
         // Calculate zoom asynchronously to avoid blocking
         requestAnimationFrame(() => {
           try {
-            const bbox = turf.bbox(cleanGeojson);
-            const bboxPolygon = turf.bboxPolygon(bbox);
-            const center = turf.center(bboxPolygon);
+            const bbox = turfBbox(cleanGeojson);
+            const bboxPolygon = turfBboxPolygon(bbox);
+            const center = turfCenter(bboxPolygon);
             const centerCoords = center.geometry.coordinates as [number, number];
             
-            const diagonal = turf.distance(
-              turf.point([bbox[0], bbox[1]]),
-              turf.point([bbox[2], bbox[3]]),
+            const diagonal = turfDistance(
+              turfPoint([bbox[0], bbox[1]]),
+              turfPoint([bbox[2], bbox[3]]),
               { units: 'kilometers' }
             );
             
