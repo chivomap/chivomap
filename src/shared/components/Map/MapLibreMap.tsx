@@ -12,8 +12,10 @@ import { useThemeStore } from '../../store/themeStore';
 import { MapControls, MapMarker, MapScale, MapStyleSelector, GeoLayer, GeoDistritos } from './Features';
 import { UserLocationMarker } from './Features/UserLocationMarker';
 import { TripPlannerMapListener } from './Features/TripPlannerMapListener';
+import { TripRouteLayer } from './Features/TripRouteLayer';
 import { RouteLayer, SearchRadiusLayer, NearbyRoutesLayer } from '../rutas';
 import { ParadasLayer } from '../paradas/ParadasLayer';
+import { useTripPlannerStore } from '../../store/tripPlannerStore';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import './popup-styles.css';
 
@@ -42,6 +44,7 @@ export const MapLibreMap: React.FC = () => {
   const { selectedRoute, nearbyRoutes, showNearbyOnMap, selectRoute, setHoveredRoute, setOverlappingRoutes } = useRutasStore();
   const { currentMapStyle, setMapStyle } = useThemeStore();
   const { openNearbyRoutes } = useBottomSheet();
+  const { selectedOptionIndex } = useTripPlannerStore();
   const { center, zoom } = config;
 
   const mapRef = useRef<MapRef>(null);
@@ -60,13 +63,25 @@ export const MapLibreMap: React.FC = () => {
         const bounds = new LngLatBounds();
         const coords = selectedRoute.geometry.coordinates;
 
+        const extendBounds = (coord: any) => {
+          if (Array.isArray(coord) && coord.length >= 2) {
+            bounds.extend([coord[0], coord[1]]);
+          }
+        };
+
         if (Array.isArray(coords)) {
-          coords.forEach((coord: any) => {
-            // coord expected as [lng, lat] or [lng, lat, elev]
-            if (Array.isArray(coord) && coord.length >= 2) {
-              bounds.extend([coord[0], coord[1]]);
-            }
-          });
+          const first = coords[0];
+          if (Array.isArray(first) && typeof first[0] === 'number') {
+            // LineString
+            coords.forEach(extendBounds);
+          } else if (Array.isArray(first) && Array.isArray(first[0])) {
+            // MultiLineString
+            coords.forEach((line: any) => {
+              if (Array.isArray(line)) {
+                line.forEach(extendBounds);
+              }
+            });
+          }
 
           if (!bounds.isEmpty()) {
             mapRef.current.fitBounds(bounds, {
@@ -438,7 +453,7 @@ export const MapLibreMap: React.FC = () => {
         />
         <MapControls />
         <MapScale />
-        <TripPlannerMapListener />
+        {env.FEATURE_TRIP_PLANNER && <TripPlannerMapListener />}
         {mapReady && (
           <>
             <GeoLayer />
@@ -448,6 +463,9 @@ export const MapLibreMap: React.FC = () => {
             <ParadasLayer />
             <RouteLayer />
             <UserLocationMarker />
+            {env.FEATURE_TRIP_PLANNER && (
+              <TripRouteLayer selectedOptionIndex={selectedOptionIndex} />
+            )}
             {pin && (
               <MapMarker position={pin} />
             )}

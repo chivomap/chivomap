@@ -2,10 +2,12 @@ import React from 'react';
 import { Marker } from 'react-map-gl/maplibre';
 import { useMap } from 'react-map-gl/maplibre';
 import { useParadasStore } from '../../store/paradasStore';
+import { useRutasStore } from '../../store/rutasStore';
 
 export const ParadasLayer: React.FC = () => {
   const { current: map } = useMap();
   const { nearbyParadas, paradasByRuta, showParadasOnMap, selectedParada, setSelectedParada } = useParadasStore();
+  const { selectedRouteDirection } = useRutasStore();
 
   // Obtener zoom actual
   const zoom = map?.getZoom() || 14;
@@ -13,12 +15,16 @@ export const ParadasLayer: React.FC = () => {
   // Ocultar paradas si zoom < 13 (aproximadamente 2km de vista)
   const shouldShowParadas = zoom >= 13;
 
+  const filteredParadasByRuta = selectedRouteDirection
+    ? paradasByRuta.filter((parada) => parada.codigo === (selectedRouteDirection === 'IDA' ? 'I' : 'R'))
+    : paradasByRuta;
+
   // Combinar paradas cercanas y paradas de ruta seleccionada (con validación null)
   const allParadas = [...(nearbyParadas || [])];
   
   // Agregar paradas de ruta si no están ya en nearbyParadas
-  if (paradasByRuta) {
-    paradasByRuta.forEach(parada => {
+  if (filteredParadasByRuta) {
+    filteredParadasByRuta.forEach(parada => {
       if (!allParadas.find(p => p.fid === parada.fid)) {
         allParadas.push(parada);
       }

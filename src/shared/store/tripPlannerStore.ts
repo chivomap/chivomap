@@ -5,12 +5,14 @@ interface TripPlannerState {
   origin: Location | null;
   destination: Location | null;
   tripPlan: TripPlanResponse | null;
+  selectedOptionIndex: number | null;
   isSelectingOrigin: boolean;
   isSelectingDestination: boolean;
   
   setOrigin: (location: Location | null) => void;
   setDestination: (location: Location | null) => void;
   setTripPlan: (plan: TripPlanResponse | null) => void;
+  setSelectedOptionIndex: (index: number | null) => void;
   setIsSelectingOrigin: (selecting: boolean) => void;
   setIsSelectingDestination: (selecting: boolean) => void;
   swapLocations: () => void;
@@ -21,12 +23,14 @@ export const useTripPlannerStore = create<TripPlannerState>((set, get) => ({
   origin: null,
   destination: null,
   tripPlan: null,
+  selectedOptionIndex: null,
   isSelectingOrigin: false,
   isSelectingDestination: false,
   
   setOrigin: (location) => set({ origin: location }),
   setDestination: (location) => set({ destination: location }),
   setTripPlan: (plan) => set({ tripPlan: plan }),
+  setSelectedOptionIndex: (index) => set({ selectedOptionIndex: index }),
   setIsSelectingOrigin: (selecting) => set({ isSelectingOrigin: selecting }),
   setIsSelectingDestination: (selecting) => set({ isSelectingDestination: selecting }),
   
@@ -39,6 +43,7 @@ export const useTripPlannerStore = create<TripPlannerState>((set, get) => ({
     origin: null,
     destination: null,
     tripPlan: null,
+    selectedOptionIndex: null,
     isSelectingOrigin: false,
     isSelectingDestination: false,
   }),

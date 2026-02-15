@@ -28,9 +28,13 @@ export interface RutaMetadata {
   kilometros: number;
 }
 
+export type RutaLineCoord = [number, number] | [number, number, number];
+export type RutaLineCoords = RutaLineCoord[];
+export type RutaMultiLineCoords = RutaLineCoord[][];
+
 export interface RutaGeometry {
-  type: 'LineString';
-  coordinates: [number, number][] | [number, number, number][];
+  type: 'LineString' | 'MultiLineString';
+  coordinates: RutaLineCoords | RutaMultiLineCoords;
 }
 
 export interface RutaProperties {
@@ -49,6 +53,12 @@ export interface RutaFeature {
   type: 'Feature';
   properties: RutaProperties;
   geometry: RutaGeometry;
+}
+
+export interface RutaDetailResponse {
+  codigo: string;
+  count: number;
+  routes: RutaFeature[];
 }
 
 export interface NearbyResponse {

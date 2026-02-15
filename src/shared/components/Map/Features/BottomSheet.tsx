@@ -11,6 +11,7 @@ import { ParadaInfo } from './BottomSheet/ParadaInfo';
 import { useParadasStore } from '../../../store/paradasStore';
 import { PlaceInfo } from './BottomSheet/PlaceInfo';
 import { TripPlannerSheet } from './BottomSheet/TripPlannerSheet';
+import { env } from '../../../config/env';
 // import { AnnotationsList } from './BottomSheet/AnnotationsList';
 
 export const BottomSheet: React.FC = () => {
@@ -169,7 +170,7 @@ export const BottomSheet: React.FC = () => {
           onWheel={handleWheel}
           onTouchMove={handleTouchScroll}
         >
-          {activeTab === 'tripPlanner' ? (
+          {activeTab === 'tripPlanner' && env.FEATURE_TRIP_PLANNER ? (
             <TripPlannerSheet />
           ) : selectedParada ? (
             <ParadaInfo parada={selectedParada} />

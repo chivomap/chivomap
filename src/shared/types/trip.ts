@@ -8,17 +8,18 @@ export interface TripLeg {
   type: 'walk' | 'bus';
   from: Location;
   to: Location;
-  distance: number;
-  duration: number;
-  routeCode?: string;
-  routeName?: string;
+  distance_m: number;
+  duration_m: number;
+  route_code?: string;
+  route_name?: string;
+  instructions?: string;
 }
 
 export interface TripOption {
   legs: TripLeg[];
-  totalDistance: number;
-  totalDuration: number;
-  transfers: number;
+  total_transfers: number;
+  total_walking_m: number;
+  estimated_time_m: number;
   confidence: 'high' | 'medium' | 'low';
 }
 
@@ -26,6 +27,13 @@ export interface TripPlanRequest {
   origin: Location;
   destination: Location;
   knownStops?: Location[];
+}
+
+export interface TripPlanResponse {
+  origin: Location;
+  destination: Location;
+  options: TripOption[];
+  has_stops: boolean;
 }
 
 export interface TripPlanResponse {

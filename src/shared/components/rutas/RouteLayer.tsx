@@ -1,34 +1,57 @@
 import { useMemo } from 'react';
 import { Source, Layer } from 'react-map-gl/maplibre';
+import type { FeatureCollection, Geometry } from 'geojson';
 import { useRutasStore } from '../../store/rutasStore';
 import { RUTA_COLORS, type SubtipoRuta } from '../../types/rutas';
 import type { LineLayerSpecification, SymbolLayerSpecification } from 'maplibre-gl';
 
 export const RouteLayer = () => {
-    const { selectedRoute } = useRutasStore();
+    const { selectedRoute, selectedRouteVariants } = useRutasStore();
 
-    const geojsonData = useMemo(() => {
-        if (!selectedRoute) return null;
+    const geojsonData = useMemo<FeatureCollection | null>(() => {
+        const routes = selectedRouteVariants.length > 0
+            ? selectedRouteVariants
+            : selectedRoute
+                ? [selectedRoute]
+                : [];
+
+        if (routes.length === 0) return null;
+
+        const activeSentido = selectedRoute?.properties.SENTIDO?.toUpperCase();
+        const fallbackSentido = routes[0]?.properties.SENTIDO?.toUpperCase();
+        const activeKey = activeSentido || fallbackSentido;
 
         return {
             type: 'FeatureCollection' as const,
-            features: [selectedRoute]
-        };
-    }, [selectedRoute]);
+            features: routes.map((route, index) => {
+                const subtipo = route.properties.SUBTIPO as SubtipoRuta;
+                const color = RUTA_COLORS[subtipo] || '#3b82f6';
+                const sentido = route.properties.SENTIDO?.toUpperCase();
+
+                return {
+                    type: 'Feature' as const,
+                    geometry: route.geometry as unknown as Geometry,
+                    properties: {
+                        ...route.properties,
+                        color,
+                        isActive: activeKey ? sentido === activeKey : index === 0,
+                    }
+                };
+            })
+        } as FeatureCollection;
+    }, [selectedRoute, selectedRouteVariants]);
 
     if (!geojsonData) return null;
 
-    const subtipo = selectedRoute?.properties.SUBTIPO as SubtipoRuta;
-    const color = RUTA_COLORS[subtipo] || '#3b82f6';
-
-    const lineStyle: LineLayerSpecification = {
-        id: 'selected-route-line',
+    const baseLineStyle: LineLayerSpecification = {
+        id: 'selected-route-base',
         type: 'line',
         source: 'selected-route',
         paint: {
-            'line-color': color,
-            'line-width': 4,
-            'line-opacity': 0.8,
+            'line-color': ['get', 'color'],
+            'line-width': 2.5,
+            'line-opacity': 0.35,
+            'line-dasharray': [1.5, 1.5],
         },
         layout: {
             'line-cap': 'round',
@@ -36,10 +59,27 @@ export const RouteLayer = () => {
         },
     };
 
-    const lineOutlineStyle: LineLayerSpecification = {
+    const activeLineStyle: LineLayerSpecification = {
+        id: 'selected-route-line',
+        type: 'line',
+        source: 'selected-route',
+        filter: ['==', ['get', 'isActive'], true],
+        paint: {
+            'line-color': ['get', 'color'],
+            'line-width': 4,
+            'line-opacity': 0.9,
+        },
+        layout: {
+            'line-cap': 'round',
+            'line-join': 'round',
+        },
+    };
+
+    const activeOutlineStyle: LineLayerSpecification = {
         id: 'selected-route-outline',
         type: 'line',
         source: 'selected-route',
+        filter: ['==', ['get', 'isActive'], true],
         paint: {
             'line-color': '#ffffff',
             'line-width': 6,
@@ -55,6 +95,7 @@ export const RouteLayer = () => {
         id: 'selected-route-arrows',
         type: 'symbol',
         source: 'selected-route',
+        filter: ['==', ['get', 'isActive'], true],
         layout: {
             'symbol-placement': 'line',
             'symbol-spacing': 100,
@@ -72,8 +113,9 @@ export const RouteLayer = () => {
 
     return (
         <Source id="selected-route" type="geojson" data={geojsonData}>
-            <Layer {...lineOutlineStyle} />
-            <Layer {...lineStyle} />
+            <Layer {...baseLineStyle} />
+            <Layer {...activeOutlineStyle} />
+            <Layer {...activeLineStyle} />
             <Layer {...arrowStyle} />
         </Source>
     );
