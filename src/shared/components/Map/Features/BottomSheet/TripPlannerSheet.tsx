@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { BiCurrentLocation, BiMap, BiLoaderAlt, BiWalk, BiArrowBack } from 'react-icons/bi';
 import { MdSwapVert } from 'react-icons/md';
 import { FaBus } from 'react-icons/fa';
@@ -29,6 +29,7 @@ export const TripPlannerSheet: React.FC = () => {
   const [isSearchingDestination, setIsSearchingDestination] = useState(false);
   const [isPlanning, setIsPlanning] = useState(false);
   const [nearbyPlaces, setNearbyPlaces] = useState<any[]>([]);
+  const nearbyPlacesTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (origin) setOriginInput(origin.name || '');
@@ -40,21 +41,30 @@ export const TripPlannerSheet: React.FC = () => {
 
   // Cargar lugares cercanos al abrir
   useEffect(() => {
-    const loadNearbyPlaces = async () => {
+    if (nearbyPlacesTimer.current) {
+      clearTimeout(nearbyPlacesTimer.current);
+    }
+
+    nearbyPlacesTimer.current = setTimeout(async () => {
       try {
-        const response = await searchPlaces({ 
-          query: '', 
-          lat: config.center.lat, 
+        const response = await searchPlaces({
+          query: '',
+          lat: config.center.lat,
           lng: config.center.lng,
-          limit: 5 
+          limit: 5
         });
         setNearbyPlaces(response.results);
       } catch (error) {
         console.error('Error loading nearby places:', error);
       }
+    }, 400);
+
+    return () => {
+      if (nearbyPlacesTimer.current) {
+        clearTimeout(nearbyPlacesTimer.current);
+      }
     };
-    loadNearbyPlaces();
-  }, [config.center]);
+  }, [config.center.lat, config.center.lng]);
 
   const handleOriginSearch = async (value: string) => {
     setOriginInput(value);

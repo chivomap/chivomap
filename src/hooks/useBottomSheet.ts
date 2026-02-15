@@ -85,6 +85,10 @@ export const useBottomSheet = () => {
   // Cerrar solo el contenido actual (inteligente)
   const closeContent = () => {
     switch (contentType) {
+      case 'tripPlanner':
+        setSheetState('peek');
+        setActiveTab('info');
+        break;
       case 'route':
         // Solo cerrar el drawer, NO limpiar la ruta
         setSheetState('peek');
