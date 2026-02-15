@@ -119,13 +119,30 @@ export const MapLibreMap: React.FC = () => {
     }
   }, [showNearbyOnMap, nearbyRoutes]);
 
+  // RAF throttle para updateConfig - actualizar a 60fps máximo
+  const rafIdRef = useRef<number | null>(null);
+  const pendingUpdateRef = useRef<{ center: { lat: number; lng: number }; zoom: number } | null>(null);
+  
   const handleViewStateChange = useCallback((evt: ViewStateChangeEvent) => {
     // Limpiar overlapping routes cuando el usuario arrastra el mapa
     setOverlappingRoutes(null);
     
-    updateConfig({
+    // Guardar el update pendiente
+    pendingUpdateRef.current = {
       center: { lat: evt.viewState.latitude, lng: evt.viewState.longitude },
       zoom: evt.viewState.zoom
+    };
+    
+    // Si ya hay un RAF pendiente, no crear otro
+    if (rafIdRef.current !== null) return;
+    
+    // Usar RAF para batch updates a 60fps
+    rafIdRef.current = requestAnimationFrame(() => {
+      if (pendingUpdateRef.current) {
+        updateConfig(pendingUpdateRef.current);
+        pendingUpdateRef.current = null;
+      }
+      rafIdRef.current = null;
     });
   }, [updateConfig, setOverlappingRoutes]);
 
@@ -211,7 +228,7 @@ export const MapLibreMap: React.FC = () => {
         style={{ width: '100%', height: '100%' }}
         mapStyle={mapStyle}
         onLoad={handleMapLoad}
-        onMoveEnd={handleViewStateChange}
+        onMove={handleViewStateChange}
         onClick={(event) => {
           // Check for nearby routes click
           if (event.features && event.features.length > 0) {
