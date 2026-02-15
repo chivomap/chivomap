@@ -18,6 +18,8 @@ interface RutasState {
     allRoutes: RutaMetadata[];
     nearbyRoutes: RutaNearby[];
     selectedRoute: RutaFeature | null;
+    selectedRouteVariants: RutaFeature[];
+    selectedRouteDirection: 'IDA' | 'REGRESO' | null;
     metadata: RutasMetadataResponse | null;
     hoveredRoute: string | null;
     overlappingRoutes: string[] | null;
@@ -35,6 +37,7 @@ interface RutasState {
     fetchAllRoutes: () => Promise<void>;
     fetchNearbyRoutes: (lat: number, lng: number, radius?: number) => Promise<void>;
     selectRoute: (codigo: string) => Promise<void>;
+    setSelectedRouteDirection: (direction: 'IDA' | 'REGRESO' | null) => void;
     clearSelectedRoute: () => void;
     clearNearbyRoutes: () => void;
     fetchMetadata: () => Promise<void>;
@@ -50,6 +53,8 @@ export const useRutasStore = create<RutasState>((set, get) => ({
     allRoutes: [],
     nearbyRoutes: [],
     selectedRoute: null,
+    selectedRouteVariants: [],
+    selectedRouteDirection: null,
     metadata: null,
     hoveredRoute: null,
     overlappingRoutes: null,
@@ -114,21 +119,65 @@ export const useRutasStore = create<RutasState>((set, get) => ({
         useParadasStore.getState().clearParadasByRuta();
 
         try {
-            const route = await getRouteByCode(codigo);
-            if (route) {
-                set({ selectedRoute: route, isLoading: false });
+            const routeDetail = await getRouteByCode(codigo);
+            if (routeDetail && routeDetail.routes.length > 0) {
+                const variants = routeDetail.routes;
+                const preferred = variants.find(route => route.properties.SENTIDO?.toUpperCase() === 'IDA') || variants[0];
+                const preferredDirection = preferred.properties.SENTIDO?.toUpperCase();
+                const direction = preferredDirection === 'REGRESO'
+                    ? 'REGRESO'
+                    : preferredDirection === 'IDA'
+                        ? 'IDA'
+                        : null;
+
+                set({
+                    selectedRoute: preferred,
+                    selectedRouteVariants: variants,
+                    selectedRouteDirection: direction,
+                    isLoading: false
+                });
                 // Cargar paradas de esta ruta
                 await useParadasStore.getState().fetchParadasByRuta(codigo);
             } else {
-                set({ error: 'Ruta no encontrada', isLoading: false });
+                set({
+                    selectedRoute: null,
+                    selectedRouteVariants: [],
+                    selectedRouteDirection: null,
+                    error: 'Ruta no encontrada',
+                    isLoading: false
+                });
             }
         } catch {
-            set({ error: 'Error al cargar la ruta', isLoading: false });
+            set({
+                selectedRoute: null,
+                selectedRouteVariants: [],
+                selectedRouteDirection: null,
+                error: 'Error al cargar la ruta',
+                isLoading: false
+            });
+        }
+    },
+
+    setSelectedRouteDirection: (direction: 'IDA' | 'REGRESO' | null) => {
+        const variants = get().selectedRouteVariants;
+        if (!variants || variants.length === 0) {
+            set({ selectedRoute: null, selectedRouteDirection: direction });
+            return;
+        }
+
+        if (!direction) {
+            set({ selectedRoute: variants[0], selectedRouteDirection: null });
+            return;
+        }
+
+        const match = variants.find(route => route.properties.SENTIDO?.toUpperCase() === direction);
+        if (match) {
+            set({ selectedRoute: match, selectedRouteDirection: direction });
         }
     },
 
     clearSelectedRoute: () => {
-        set({ selectedRoute: null });
+        set({ selectedRoute: null, selectedRouteVariants: [], selectedRouteDirection: null });
         // Limpiar paradas de la ruta
         useParadasStore.getState().clearParadasByRuta();
     },

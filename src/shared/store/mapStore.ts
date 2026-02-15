@@ -8,7 +8,10 @@ import { env, isDevelopment } from '../config/env';
 
 interface MapState {
   config: MapConfigOptions;
-  updateConfig: (newConfig: MapConfigOptions) => void;
+  updateConfig: (newConfig: MapConfigOptions, animate?: boolean) => void;
+  savedViewport: MapConfigOptions | null;
+  saveViewport: () => void;
+  restoreViewport: () => void;
   geojson: FeatureCollection<MultiPolygon, FeatureProperties> | null;
   updateGeojson: (newGeojson: FeatureCollection<MultiPolygon, FeatureProperties> | null) => void;
   polygon: LngLat[];
@@ -30,12 +33,24 @@ interface MapConfigOptions {
   zoom: number;
 }
 
-export const useMapStore = create<MapState>((set) => ({
+export const useMapStore = create<MapState>((set, get) => ({
   config: {
     center: { lat: env.MAP_DEFAULT_LAT, lng: env.MAP_DEFAULT_LNG },
     zoom: env.MAP_DEFAULT_ZOOM,
   },
   updateConfig: (newConfig) => set(() => ({ config: newConfig })),
+  
+  savedViewport: null,
+  saveViewport: () => {
+    const currentConfig = get().config;
+    set(() => ({ savedViewport: { ...currentConfig } }));
+  },
+  restoreViewport: () => {
+    const saved = get().savedViewport;
+    if (saved) {
+      set(() => ({ config: saved, savedViewport: null }));
+    }
+  },
 
   geojson: null,
   updateGeojson: (newGeojson) => {

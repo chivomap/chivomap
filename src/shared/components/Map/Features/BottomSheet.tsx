@@ -2,7 +2,7 @@ import React, { useState, useCallback, useRef } from 'react';
 import { useBottomSheet } from '../../../../hooks/useBottomSheet';
 // import { useAnnotationStore } from '../../../store/annotationStore';
 import { useRutasStore } from '../../../store/rutasStore';
-// import { useBottomSheetStore } from '../../../store/bottomSheetStore';
+import { useBottomSheetStore } from '../../../store/bottomSheetStore';
 import { Z_INDEX } from '../../../constants/zIndex';
 import { RouteInfo } from './BottomSheet/RouteInfo';
 import { NearbyRoutesList } from './BottomSheet/NearbyRoutesList';
@@ -10,11 +10,13 @@ import { NearbyParadasList } from './BottomSheet/NearbyParadasList';
 import { ParadaInfo } from './BottomSheet/ParadaInfo';
 import { useParadasStore } from '../../../store/paradasStore';
 import { PlaceInfo } from './BottomSheet/PlaceInfo';
+import { TripPlannerSheet } from './BottomSheet/TripPlannerSheet';
+import { env } from '../../../config/env';
 // import { AnnotationsList } from './BottomSheet/AnnotationsList';
 
 export const BottomSheet: React.FC = () => {
   const { isOpen, sheetState, setSheetState } = useBottomSheet();
-  // const { activeTab, setActiveTab } = useBottomSheetStore();
+  const { activeTab } = useBottomSheetStore();
   // const annotations = useAnnotationStore(state => state.annotations);
   const selectedRoute = useRutasStore(state => state.selectedRoute);
   const nearbyRoutes = useRutasStore(state => state.nearbyRoutes);
@@ -168,7 +170,9 @@ export const BottomSheet: React.FC = () => {
           onWheel={handleWheel}
           onTouchMove={handleTouchScroll}
         >
-          {selectedParada ? (
+          {activeTab === 'tripPlanner' && env.FEATURE_TRIP_PLANNER ? (
+            <TripPlannerSheet />
+          ) : selectedParada ? (
             <ParadaInfo parada={selectedParada} />
           ) : selectedRoute ? (
             <RouteInfo route={selectedRoute} />
@@ -180,17 +184,6 @@ export const BottomSheet: React.FC = () => {
           ) : (
             <PlaceInfo />
           )}
-          {/* {activeTab === 'info' ? (
-            selectedRoute ? (
-              <RouteInfo route={selectedRoute} />
-            ) : searchLocation || (nearbyRoutes && nearbyRoutes.length > 0) ? (
-              <NearbyRoutesList />
-            ) : (
-              <PlaceInfo />
-            )
-          ) : (
-            <AnnotationsList />
-          )} */}
         </div>
       </div>
     </div>

@@ -11,8 +11,11 @@ import { useThemeStore } from '../../store/themeStore';
 
 import { MapControls, MapMarker, MapScale, MapStyleSelector, GeoLayer, GeoDistritos } from './Features';
 import { UserLocationMarker } from './Features/UserLocationMarker';
+import { TripPlannerMapListener } from './Features/TripPlannerMapListener';
+import { TripRouteLayer } from './Features/TripRouteLayer';
 import { RouteLayer, SearchRadiusLayer, NearbyRoutesLayer } from '../rutas';
 import { ParadasLayer } from '../paradas/ParadasLayer';
+import { useTripPlannerStore } from '../../store/tripPlannerStore';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import './popup-styles.css';
 
@@ -41,6 +44,7 @@ export const MapLibreMap: React.FC = () => {
   const { selectedRoute, nearbyRoutes, showNearbyOnMap, selectRoute, setHoveredRoute, setOverlappingRoutes } = useRutasStore();
   const { currentMapStyle, setMapStyle } = useThemeStore();
   const { openNearbyRoutes } = useBottomSheet();
+  const { selectedOptionIndex } = useTripPlannerStore();
   const { center, zoom } = config;
 
   const mapRef = useRef<MapRef>(null);
@@ -59,13 +63,25 @@ export const MapLibreMap: React.FC = () => {
         const bounds = new LngLatBounds();
         const coords = selectedRoute.geometry.coordinates;
 
+        const extendBounds = (coord: any) => {
+          if (Array.isArray(coord) && coord.length >= 2) {
+            bounds.extend([coord[0], coord[1]]);
+          }
+        };
+
         if (Array.isArray(coords)) {
-          coords.forEach((coord: any) => {
-            // coord expected as [lng, lat] or [lng, lat, elev]
-            if (Array.isArray(coord) && coord.length >= 2) {
-              bounds.extend([coord[0], coord[1]]);
-            }
-          });
+          const first = coords[0];
+          if (Array.isArray(first) && typeof first[0] === 'number') {
+            // LineString
+            coords.forEach(extendBounds);
+          } else if (Array.isArray(first) && Array.isArray(first[0])) {
+            // MultiLineString
+            coords.forEach((line: any) => {
+              if (Array.isArray(line)) {
+                line.forEach(extendBounds);
+              }
+            });
+          }
 
           if (!bounds.isEmpty()) {
             mapRef.current.fitBounds(bounds, {
@@ -118,13 +134,30 @@ export const MapLibreMap: React.FC = () => {
     }
   }, [showNearbyOnMap, nearbyRoutes]);
 
+  // RAF throttle para updateConfig - actualizar a 60fps máximo
+  const rafIdRef = useRef<number | null>(null);
+  const pendingUpdateRef = useRef<{ center: { lat: number; lng: number }; zoom: number } | null>(null);
+  
   const handleViewStateChange = useCallback((evt: ViewStateChangeEvent) => {
     // Limpiar overlapping routes cuando el usuario arrastra el mapa
     setOverlappingRoutes(null);
     
-    updateConfig({
+    // Guardar el update pendiente
+    pendingUpdateRef.current = {
       center: { lat: evt.viewState.latitude, lng: evt.viewState.longitude },
       zoom: evt.viewState.zoom
+    };
+    
+    // Si ya hay un RAF pendiente, no crear otro
+    if (rafIdRef.current !== null) return;
+    
+    // Usar RAF para batch updates a 60fps
+    rafIdRef.current = requestAnimationFrame(() => {
+      if (pendingUpdateRef.current) {
+        updateConfig(pendingUpdateRef.current);
+        pendingUpdateRef.current = null;
+      }
+      rafIdRef.current = null;
     });
   }, [updateConfig, setOverlappingRoutes]);
 
@@ -252,8 +285,9 @@ export const MapLibreMap: React.FC = () => {
           handleMapClick(event);
         }}
         onMouseMove={(event) => {
-          // En mobile, no mostrar tooltips
+          // En mobile, deshabilitar completamente para evitar lag
           const isMobile = window.innerWidth < 768;
+          if (isMobile) return;
           
           if (event.features && event.features.length > 0) {
             // Check for nearby routes hover (multiple possible)
@@ -274,21 +308,19 @@ export const MapLibreMap: React.FC = () => {
               if (routeCodes.length > 1) {
                 // Multiple routes - show summary
                 setHoveredRoute(null);
-                if (!isMobile) {
-                  const rutas = routeCodes.map(code => nearbyRoutes.find(r => r.codigo === code)).filter(Boolean) as typeof nearbyRoutes;
-                  setRouteHover({
-                    codigo: 'multiple',
-                    nombre: `${routeCodes.length} rutas`,
-                    tipo: rutas.map(r => r.nombre).join(', '),
-                    subtipo: '',
-                    sentido: '',
-                    departamento: '',
-                    kilometros: 0,
-                    distancia_m: 0,
-                    x: event.point.x,
-                    y: event.point.y
-                  });
-                }
+                const rutas = routeCodes.map(code => nearbyRoutes.find(r => r.codigo === code)).filter(Boolean) as typeof nearbyRoutes;
+                setRouteHover({
+                  codigo: 'multiple',
+                  nombre: `${routeCodes.length} rutas`,
+                  tipo: rutas.map(r => r.nombre).join(', '),
+                  subtipo: '',
+                  sentido: '',
+                  departamento: '',
+                  kilometros: 0,
+                  distancia_m: 0,
+                  x: event.point.x,
+                  y: event.point.y
+                });
                 return;
               }
               
@@ -302,21 +334,18 @@ export const MapLibreMap: React.FC = () => {
                 // Actualizar hover state
                 setHoveredRoute(ruta.codigo);
                 
-                // Solo mostrar tooltip en desktop
-                if (!isMobile) {
-                  setRouteHover({
-                    codigo: ruta.codigo,
-                    nombre: ruta.nombre,
-                    tipo: ruta.tipo,
-                    subtipo: ruta.subtipo,
-                    sentido: ruta.sentido,
-                    departamento: ruta.departamento,
-                    kilometros: ruta.kilometros,
-                    distancia_m: ruta.distancia_m,
-                    x: event.point.x,
-                    y: event.point.y
-                  });
-                }
+                setRouteHover({
+                  codigo: ruta.codigo,
+                  nombre: ruta.nombre,
+                  tipo: ruta.tipo,
+                  subtipo: ruta.subtipo,
+                  sentido: ruta.sentido,
+                  departamento: ruta.departamento,
+                  kilometros: ruta.kilometros,
+                  distancia_m: ruta.distancia_m,
+                  x: event.point.x,
+                  y: event.point.y
+                });
                 return;
               }
             }
@@ -424,6 +453,7 @@ export const MapLibreMap: React.FC = () => {
         />
         <MapControls />
         <MapScale />
+        {env.FEATURE_TRIP_PLANNER && <TripPlannerMapListener />}
         {mapReady && (
           <>
             <GeoLayer />
@@ -433,6 +463,9 @@ export const MapLibreMap: React.FC = () => {
             <ParadasLayer />
             <RouteLayer />
             <UserLocationMarker />
+            {env.FEATURE_TRIP_PLANNER && (
+              <TripRouteLayer selectedOptionIndex={selectedOptionIndex} />
+            )}
             {pin && (
               <MapMarker position={pin} />
             )}

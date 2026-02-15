@@ -1,10 +1,12 @@
 import React from 'react';
 import { useMap } from 'react-map-gl/maplibre';
 import { BiPlus, BiMinus, BiFullscreen, BiExitFullscreen, BiCurrentLocation, BiX, BiDotsVerticalRounded } from 'react-icons/bi';
-import { MdDirectionsBus, MdContentCopy } from 'react-icons/md';
+import { MdDirectionsBus, MdContentCopy, MdDirections } from 'react-icons/md';
 import { usePinStore } from '../../../store/pinStore';
 import { useBottomSheet } from '../../../../hooks/useBottomSheet';
 import { useMapStore } from '../../../store/mapStore';
+import { useTripPlannerStore } from '../../../store/tripPlannerStore';
+import { env } from '../../../config/env';
 
 export const MapControls: React.FC = () => {
   const { current: map } = useMap();
@@ -13,8 +15,9 @@ export const MapControls: React.FC = () => {
   const [showPinMenu, setShowPinMenu] = React.useState(false);
   const menuRef = React.useRef<HTMLDivElement>(null);
   const { pin, clearPin } = usePinStore();
-  const { openNearbyRoutes } = useBottomSheet();
+  const { openNearbyRoutes, openTripPlanner } = useBottomSheet();
   const { updateConfig, config } = useMapStore();
+  const { reset: resetTripPlanner } = useTripPlannerStore();
 
   const zoomIn = () => {
     if (map) map.zoomIn();
@@ -179,6 +182,20 @@ export const MapControls: React.FC = () => {
           <BiFullscreen className="text-secondary text-xl sm:text-xl mx-auto" />
         )}
       </button>
+
+      {/* Trip Planner Button */}
+      {env.FEATURE_TRIP_PLANNER && (
+        <button
+          onClick={() => {
+            resetTripPlanner();
+            openTripPlanner();
+          }}
+          className="w-10 h-10 sm:w-10 sm:h-10 bg-secondary shadow-lg rounded-lg hover:bg-secondary/80 transition-colors touch-manipulation"
+          title="Planificar viaje"
+        >
+          <MdDirections className="text-white text-xl sm:text-xl mx-auto" />
+        </button>
+      )}
 
       {/* Nearby Routes Button */}
       <button

@@ -4,6 +4,7 @@ import { createNetworkError } from '../errors/AppError';
 import type {
     NearbyResponse,
     SearchResponse,
+    RutaDetailResponse,
     RutaFeature,
     RutasMetadataResponse,
     ListResponse
@@ -113,10 +114,10 @@ export const searchRoutes = async (query: string): Promise<SearchResponse> => {
  * Obtiene una ruta específica con geometría completa
  */
 export const getRouteByCode = async (
-    codigo: string, 
-    retries = 2, 
+    codigo: string,
+    retries = 2,
     delay = 500
-): Promise<RutaFeature | null> => {
+): Promise<RutaDetailResponse | null> => {
     checkNetwork();
     
     for (let attempt = 0; attempt <= retries; attempt++) {
@@ -165,7 +166,7 @@ export const getRoutesBatch = async (
     codes: string[], 
     retries = 3, 
     delay = 1000
-): Promise<Record<string, RutaFeature>> => {
+): Promise<Record<string, RutaFeature[]>> => {
     checkNetwork();
     
     for (let attempt = 0; attempt <= retries; attempt++) {

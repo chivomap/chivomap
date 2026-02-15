@@ -5,7 +5,7 @@ Aplicación web interactiva para visualización y análisis de datos geográfico
 ![License](https://img.shields.io/badge/license-AGPL--3.0-blue.svg)
 ![Version](https://img.shields.io/badge/version-2.0.0-green.svg)
 
-## 🌟 Características
+## Características
 
 - 🔍 Búsqueda de departamentos, municipios y distritos
 - 📍 Sistema de anotaciones (pins, polígonos)
@@ -15,7 +15,7 @@ Aplicación web interactiva para visualización y análisis de datos geográfico
 - 📱 Diseño responsive (móvil y desktop)
 - 🎨 Navegación jerárquica con colores por región
 
-## 🚀 Tecnologías
+## Tecnologías
 
 - **React 18** + TypeScript
 - **MapLibre GL JS** - Mapas interactivos
@@ -23,6 +23,30 @@ Aplicación web interactiva para visualización y análisis de datos geográfico
 - **Zustand** - Estado global
 - **Turf.js** - Análisis geoespacial
 - **Vite** - Build tool
+
+## Arquitectura
+
+```mermaid
+flowchart LR
+    U[Usuario] --> UI[UI React]
+    UI --> MAP[MapLibreMap]
+    UI --> SEARCH[Search UI]
+    UI --> SHEET[Bottom Sheet]
+    UI --> STORE[Zustand Stores]
+    STORE --> SVC[Servicios API Frontend]
+    SVC --> API[Go Fiber API]
+    API --> H[Handlers]
+    H --> C[Cache/Services]
+    C --> GEO[Assets Geo/TopoJSON]
+    C --> RUTAS[Cache Rutas/Paradas]
+    H --> DB[Turso / Censo DB]
+    H --> PG[Postgres/PostGIS Geocoding]
+    H --> SCRAPE[Scraping Sismos]
+    API --> RESP[JSON Response]
+    RESP --> STORE
+    STORE --> UI
+```
+
 
 ## 📦 Instalación
 
@@ -84,13 +108,13 @@ Esta licencia protege que ChivoMap siempre sea **software libre y de código abi
 
 Para más detalles, ver [LICENSE](./LICENSE) o https://www.gnu.org/licenses/agpl-3.0.html
 
-## 👨‍💻 Desarrollador
+## Desarrollador
 
 **Eliseo Arévalo**
 - Website: [eliseo-arevalo.github.io](https://eliseo-arevalo.github.io/)
 - GitHub: [@eliseo-arevalo](https://github.com/eliseo-arevalo)
 
-## 🤝 Contribuir
+## Contribuir
 
 ¡Las contribuciones son bienvenidas! Este es un proyecto comunitario.
 
@@ -102,7 +126,7 @@ Para más detalles, ver [LICENSE](./LICENSE) o https://www.gnu.org/licenses/agpl
 
 Ver [CONTRIBUTING.md](./CONTRIBUTING.md) para más detalles.
 
-## 🏢 Organización
+## Organización
 
 Este proyecto es parte de [ChivoMap](https://github.com/chivomap) - Una iniciativa para democratizar el acceso a datos geográficos de El Salvador.
 
@@ -111,7 +135,7 @@ Este proyecto es parte de [ChivoMap](https://github.com/chivomap) - Una iniciati
 - Issues: [GitHub Issues](https://github.com/chivomap/web/issues)
 - Discusiones: [GitHub Discussions](https://github.com/chivomap/web/discussions)
 
-## 🙏 Agradecimientos
+## Agradecimientos
 
 - Datos geográficos de El Salvador
 - Comunidad open source

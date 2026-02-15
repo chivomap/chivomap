@@ -3,37 +3,30 @@ import { Source, Layer, useMap } from 'react-map-gl/maplibre';
 import { useRutasStore } from '../../store/rutasStore';
 import { RUTA_COLORS, type SubtipoRuta } from '../../types/rutas';
 import { useMapStore } from '../../store/mapStore';
+import { getLODLevel, getMaxRoutesForZoom } from '../../config/lod';
 
 export const NearbyRoutesLayer: React.FC = () => {
   const { nearbyRoutes, showNearbyOnMap, selectedRoute, hoveredRoute, setHoveredRoute } = useRutasStore();
   const { config } = useMapStore();
   const { current: map } = useMap();
 
-  // Redondear zoom para evitar recalcular en cambios mínimos
-  const zoomLevel = Math.floor(config.zoom);
+  // Obtener nivel LOD y máximo de rutas desde config
+  const lodLevel = getLODLevel(config.zoom);
+  const maxRoutes = getMaxRoutesForZoom(config.zoom);
 
   // Filtrar rutas por zoom
   const visibleRoutes = useMemo(() => {
     if (!nearbyRoutes || nearbyRoutes.length === 0) return [];
-    
-    if (zoomLevel < 11) return nearbyRoutes.slice(0, 15);
-    if (zoomLevel < 13) return nearbyRoutes.slice(0, 25);
-    if (zoomLevel < 15) return nearbyRoutes.slice(0, 35);
-    return nearbyRoutes.slice(0, 50);
-  }, [nearbyRoutes, zoomLevel]);
+    return nearbyRoutes.slice(0, maxRoutes);
+  }, [nearbyRoutes, maxRoutes]);
 
   // Seleccionar LOD según zoom y crear FeatureCollection
   const routesFeatureCollection = useMemo(() => {
-    let lod: 'low' | 'med' | 'high' | 'ultra' = 'ultra';
-    if (zoomLevel < 11) lod = 'low';
-    else if (zoomLevel < 13) lod = 'med';
-    else if (zoomLevel < 15) lod = 'high';
-
     let totalPoints = 0;
     const features = visibleRoutes
       .filter(ruta => ruta.geometry)
       .map((ruta) => {
-        const coords = ruta.geometry![lod];
+        const coords = ruta.geometry![lodLevel];
         totalPoints += coords.length;
         
         const subtipo = ruta.subtipo as SubtipoRuta;
@@ -55,31 +48,36 @@ export const NearbyRoutesLayer: React.FC = () => {
         };
       });
 
-    console.log(`🎨 LOD ${lod}: ${features.length} routes, ${totalPoints} points`);
+    console.log(`🎨 LOD ${lodLevel}: ${features.length} routes, ${totalPoints} points`);
 
     return {
       type: 'FeatureCollection' as const,
       features: features
     };
-  }, [visibleRoutes, zoomLevel]);
+  }, [visibleRoutes, lodLevel]);
 
-  // Manejar hover con feature state
+  // Manejar hover con feature state (solo en desktop)
   useEffect(() => {
     if (!map) return;
+    
+    // Deshabilitar hover en mobile para evitar problemas de performance
+    const isMobile = window.innerWidth < 768;
+    if (isMobile) return;
 
     const handleMouseMove = (e: any) => {
       if (e.features && e.features.length > 0) {
         const feature = e.features[0];
         const codigo = feature.properties.codigo;
         
-        if (hoveredRoute && hoveredRoute !== codigo) {
-          map.setFeatureState(
-            { source: 'nearby-routes-source', id: hoveredRoute },
-            { hover: false }
-          );
-        }
-        
-        if (codigo) {
+        // Solo actualizar si cambió la ruta
+        if (codigo !== hoveredRoute) {
+          if (hoveredRoute) {
+            map.setFeatureState(
+              { source: 'nearby-routes-source', id: hoveredRoute },
+              { hover: false }
+            );
+          }
+          
           map.setFeatureState(
             { source: 'nearby-routes-source', id: codigo },
             { hover: true }
@@ -127,6 +125,7 @@ export const NearbyRoutesLayer: React.FC = () => {
   // Return condicional DESPUÉS de todos los hooks
   if (!showNearbyOnMap || !nearbyRoutes || nearbyRoutes.length === 0 || selectedRoute) return null;
 
+  const zoomLevel = Math.floor(config.zoom);
   const showHitbox = zoomLevel >= 12;
 
   return (

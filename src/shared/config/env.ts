@@ -7,6 +7,7 @@ interface EnvConfig {
   MAP_MIN_ZOOM: number;
   NODE_ENV: string;
   ENABLE_CONSOLE_LOGS: boolean;
+  FEATURE_TRIP_PLANNER: boolean;
 }
 
 const getEnvVar = (key: string, defaultValue?: string): string => {
@@ -40,6 +41,7 @@ export const env: EnvConfig = {
   MAP_MIN_ZOOM: getEnvNumber('MAP_MIN_ZOOM', 8),
   NODE_ENV: getEnvVar('NODE_ENV', 'development'),
   ENABLE_CONSOLE_LOGS: getEnvBoolean('ENABLE_CONSOLE_LOGS', true),
+  FEATURE_TRIP_PLANNER: getEnvBoolean('FEATURE_TRIP_PLANNER', false),
 };
 
 export const isDevelopment = env.NODE_ENV === 'development';

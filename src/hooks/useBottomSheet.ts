@@ -4,11 +4,12 @@ import { useRutasStore } from '../shared/store/rutasStore';
 import { useParadasStore } from '../shared/store/paradasStore';
 import { useMapStore } from '../shared/store/mapStore';
 import { useAnnotationStore } from '../shared/store/annotationStore';
+import { env } from '../shared/config/env';
 
-type ContentType = 'route' | 'nearbyRoutes' | 'geoInfo' | 'annotations' | 'none';
+type ContentType = 'route' | 'nearbyRoutes' | 'geoInfo' | 'annotations' | 'tripPlanner' | 'none';
 
 export const useBottomSheet = () => {
-  const { sheetState, setSheetState, setActiveTab } = useBottomSheetStore();
+  const { sheetState, setSheetState, setActiveTab, activeTab } = useBottomSheetStore();
   const { selectedRoute, nearbyRoutes, clearSelectedRoute, clearNearbyRoutes } = useRutasStore();
   const { selectedInfo, setSelectedInfo } = useMapStore();
   const { annotations } = useAnnotationStore();
@@ -19,7 +20,8 @@ export const useBottomSheet = () => {
 
   // Determinar tipo de contenido actual con prioridad clara
   const getContentType = (): ContentType => {
-    // Prioridad: ruta individual > rutas cercanas > info geo > anotaciones
+    // Prioridad: tripPlanner > ruta individual > rutas cercanas > info geo > anotaciones
+    if (activeTab === 'tripPlanner' && env.FEATURE_TRIP_PLANNER) return 'tripPlanner';
     if (selectedRoute) return 'route';
     // Mostrar nearbyRoutes si hay searchLocation (aunque esté vacío)
     const { searchLocation } = useRutasStore.getState();
@@ -32,9 +34,16 @@ export const useBottomSheet = () => {
   const contentType = getContentType();
   const isOpen = contentType !== 'none';
 
+  useEffect(() => {
+    if (!env.FEATURE_TRIP_PLANNER && activeTab === 'tripPlanner') {
+      setActiveTab('info');
+    }
+  }, [activeTab, setActiveTab]);
+
   // Estado inicial inteligente según contenido
   const getInitialState = (type: ContentType) => {
     switch (type) {
+      case 'tripPlanner': return 'half';
       case 'route': return 'half';
       case 'nearbyRoutes': return 'half';
       case 'geoInfo': return 'peek';
@@ -139,6 +148,18 @@ export const useBottomSheet = () => {
     }
   };
 
+  const openTripPlanner = () => {
+    if (!env.FEATURE_TRIP_PLANNER) return;
+    // Limpiar otros contenidos
+    clearSelectedRoute();
+    clearNearbyRoutes();
+    setSelectedInfo(null);
+    
+    // Abrir el sheet
+    setSheetState('half');
+    setActiveTab('tripPlanner');
+  };
+
   return {
     // Estado
     isOpen,
@@ -154,5 +175,6 @@ export const useBottomSheet = () => {
     openRoute,
     openNearbyRoutes,
     openAnnotations,
+    openTripPlanner,
   };
 };

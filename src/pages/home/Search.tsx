@@ -1,37 +1,35 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
-import { BiX as ClearIcon, BiBus, BiMap, BiChevronDown, BiLoaderAlt } from "react-icons/bi";
+import { BiX as ClearIcon, BiBus, BiMap, BiLoaderAlt } from "react-icons/bi";
 import { FaBus } from "react-icons/fa";
 import Fuse from 'fuse.js';
-import { getGeoData, GeoDataSearch } from "../../shared/services/GetGeoData";
 import { useMapStore } from '../../shared/store/mapStore';
-// import { useAnnotationStore } from '../../shared/store/annotationStore';
+import { usePinStore } from '../../shared/store/pinStore';
 import { getQueryData } from '../../shared/services/GetQueryData';
 import { useRutasStore } from '../../shared/store/rutasStore';
 import { TextCarousel } from './TextCarrusel';
 import { useLayoutStore } from '../../shared/store/layoutStore';
 import { useErrorStore } from '../../shared/store/errorStore';
 import { errorHandler } from '../../shared/errors/ErrorHandler';
-import { Z_INDEX } from '../../shared/constants/zIndex';
 import { useSearchStore } from '../../shared/store/searchStore';
+import { usePlaceSearchStore } from '../../shared/store/placeSearchStore';
 import { RouteCodeBadge } from '../../shared/components/rutas/RouteCodeBadge';
-
-type SearchMode = 'routes' | 'places';
+import { searchPlaces } from '../../shared/api/search';
+import type { SearchResult } from '../../shared/types/search';
+import { LngLat } from 'maplibre-gl';
 
 export const Search: React.FC = () => {
-  const [geoData, setGeoData] = useState<GeoDataSearch>({
-    departamentos: [],
-    municipios: [],
-    distritos: []
-  });
   const { inputValue, showResults, setInputValue, setShowResults } = useSearchStore();
-  const [mode, setMode] = useState<SearchMode>('routes');
-  const [showModeSelector, setShowModeSelector] = useState<boolean>(false);
+  const { setSelectedResult, clearSelectedResult } = usePlaceSearchStore();
+  const [placeResults, setPlaceResults] = useState<SearchResult[]>([]);
+  const [isSearchingPlaces, setIsSearchingPlaces] = useState(false);
+  const debounceTimer = useRef<ReturnType<typeof setTimeout>>();
 
   const searchContainerRef = useRef<HTMLFormElement>(null);
 
   const { layoutStates } = useLayoutStore();
   const { search, department } = layoutStates;
-  const { updateGeojson, setSelectedInfo, setCurrentLevel, setParentInfo, selectedInfo } = useMapStore();
+  const { updateGeojson, setSelectedInfo, setCurrentLevel, setParentInfo, selectedInfo, config, updateConfig } = useMapStore();
+  const { setPin } = usePinStore();
 
   const { selectRoute, allRoutes, fetchAllRoutes, isLoading: isRutasLoading, clearSelectedRoute } = useRutasStore();
 
@@ -42,7 +40,6 @@ export const Search: React.FC = () => {
     const handleClickOutside = (event: MouseEvent) => {
       if (searchContainerRef.current && !searchContainerRef.current.contains(event.target as Node)) {
         setShowResults(false);
-        setShowModeSelector(false);
       }
     };
 
@@ -51,16 +48,6 @@ export const Search: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const data = await getGeoData();
-        setGeoData(data.data);
-      } catch (error) {
-        console.error("Error loading geo data", error);
-      }
-    };
-    fetchData();
-
     try {
       document.cookie = 'hasVisited=true; path=/; max-age=31536000; SameSite=Strict';
     } catch {
@@ -69,37 +56,58 @@ export const Search: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    if (mode === 'routes' && allRoutes.length === 0) {
-      fetchAllRoutes();
-    }
-  }, [mode, allRoutes.length, fetchAllRoutes]);
+    fetchAllRoutes();
+  }, [fetchAllRoutes]);
 
-  // Limpiar todo al cambiar de modo
+  // Limpiar al cambiar input
   useEffect(() => {
-    setInputValue('');
-    setShowResults(false);
-    
-    // Limpiar estado del mapa (lugares)
-    updateGeojson(null);
-    setSelectedInfo(null);
-    setCurrentLevel('departamento');
-    setParentInfo(null);
-    
-    // Limpiar ruta seleccionada
-    clearSelectedRoute();
-  }, [mode, updateGeojson, setSelectedInfo, setCurrentLevel, setParentInfo, clearSelectedRoute]);
+    if (!inputValue) {
+      updateGeojson(null);
+      setSelectedInfo(null);
+      setCurrentLevel('departamento');
+      setParentInfo(null);
+      clearSelectedRoute();
+    }
+  }, [inputValue, updateGeojson, setSelectedInfo, setCurrentLevel, setParentInfo, clearSelectedRoute]);
 
   const handleInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const newValue = event.target.value;
     setInputValue(newValue);
     setShowResults(true);
-    setShowModeSelector(false); // Ocultar selector de modo al escribir
 
     if (selectedInfo && newValue !== selectedInfo.name) {
       updateGeojson(null);
       setSelectedInfo(null);
       setCurrentLevel('departamento');
       setParentInfo(null);
+    }
+    
+    // Búsqueda de lugares con debounce
+    if (newValue.trim()) {
+      if (debounceTimer.current) {
+        clearTimeout(debounceTimer.current);
+      }
+      
+      setIsSearchingPlaces(true);
+      debounceTimer.current = setTimeout(async () => {
+        try {
+          const response = await searchPlaces({
+            query: newValue.trim(),
+            lat: config.center.lat,
+            lng: config.center.lng,
+            limit: 5,
+            country: 'sv',
+          });
+          setPlaceResults(response.results);
+        } catch (error) {
+          console.error('Error searching places:', error);
+          setPlaceResults([]);
+        } finally {
+          setIsSearchingPlaces(false);
+        }
+      }, 300);
+    } else {
+      setPlaceResults([]);
     }
   };
 
@@ -113,8 +121,11 @@ export const Search: React.FC = () => {
     setCurrentLevel('departamento');
     setParentInfo(null);
     
-    // Limpiar rutas
+    // Limpiar rutas y lugares
     useRutasStore.getState().clearSelectedRoute();
+    clearSelectedResult();
+    setPlaceResults([]);
+    setPin(null);
     useRutasStore.getState().clearNearbyRoutes();
   }
 
@@ -185,66 +196,29 @@ export const Search: React.FC = () => {
   }, [selectedInfo]);
 
   // --- Unified Search Logic with Lazy Loading ---
-  type PlaceItem = { name: string; type: 'D' | 'M' | 'distrito' };
   
   const fuseInstance = useMemo(() => {
-    if (mode === 'places') {
-      const allPlaces: PlaceItem[] = [
-        ...geoData.departamentos.map(d => ({ name: d, type: 'D' as const })),
-        ...geoData.municipios.map(m => ({ name: m, type: 'M' as const })),
-        ...geoData.distritos.map(d => ({ name: d, type: 'distrito' as const }))
-      ];
-      return new Fuse(allPlaces, {
-        threshold: 0.3,
-        keys: ['name']
-      });
-    } else {
-      return new Fuse(allRoutes, {
-        threshold: 0.2,
-        useExtendedSearch: true,
-        ignoreLocation: true,
-        keys: ['nombre', 'codigo']
-      });
-    }
-  }, [mode, geoData, allRoutes]);
+    return new Fuse(allRoutes, {
+      threshold: 0.2,
+      useExtendedSearch: true,
+      ignoreLocation: true,
+      keys: ['nombre', 'codigo']
+    });
+  }, [allRoutes]);
 
   const searchResults = useMemo(() => {
-    if (!inputValue) return { departamentos: [], municipios: [], distritos: [], routes: [] };
+    if (!inputValue) return { routes: [] };
 
     const results = fuseInstance.search(inputValue);
     
-    if (mode === 'places') {
-      const placeResults = results.slice(0, 15);
-      const departamentos: string[] = [];
-      const municipios: string[] = [];
-      const distritos: string[] = [];
-      
-      placeResults.forEach(r => {
-        const item = r.item as any;
-        if (item.type === 'D' && departamentos.length < 5) departamentos.push(item.name);
-        else if (item.type === 'M' && municipios.length < 5) municipios.push(item.name);
-        else if (item.type === 'distrito' && distritos.length < 5) distritos.push(item.name);
-      });
-      
-      return { departamentos, municipios, distritos, routes: [] };
-    } else {
-      return {
-        departamentos: [],
-        municipios: [],
-        distritos: [],
-        routes: results.slice(0, 20).map(r => r.item as typeof allRoutes[0])
-      };
-    }
-  }, [inputValue, mode, fuseInstance, allRoutes]);
+    return {
+      routes: results.slice(0, 20).map(r => r.item as typeof allRoutes[0])
+    };
+  }, [inputValue, fuseInstance, allRoutes]);
 
-  const { departamentos: filteredDepartamentos, municipios: filteredMunicipios, distritos: filteredDistritos, routes: filteredRoutes } = searchResults;
+  const { routes: filteredRoutes } = searchResults;
 
-  const hasResults = filteredDepartamentos.length > 0 ||
-    filteredMunicipios.length > 0 ||
-    filteredDistritos.length > 0 ||
-    filteredRoutes.length > 0;
-
-  const isSelfLoading = mode === 'routes' && isRutasLoading && allRoutes.length === 0;
+  const isSelfLoading = isRutasLoading && allRoutes.length === 0;
 
   return (
     <>
@@ -263,51 +237,8 @@ export const Search: React.FC = () => {
 
               <div className="relative flex items-center bg-primary backdrop-blur-sm rounded-xl border border-white/10 shadow-2xl overflow-visible pointer-events-auto">
 
-                <div className="relative border-r border-white/10 pr-1">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowModeSelector(!showModeSelector);
-                      setShowResults(false); // Ocultar resultados al abrir selector
-                    }}
-                    className="flex items-center gap-1 pl-3 pr-2 py-3 text-secondary hover:text-white transition-colors outline-none"
-                    title="Cambiar modo de búsqueda"
-                  >
-                    {mode === 'routes' ? <BiBus className="text-xl" /> : <BiMap className="text-xl" />}
-                    <BiChevronDown className={`text-xs opacity-70 transition-transform ${showModeSelector ? 'rotate-180' : ''}`} />
-                  </button>
-
-                  {showModeSelector && (
-                    <div 
-                      className="absolute top-full left-0 mt-2 w-32 bg-primary/95 backdrop-blur-md border border-white/10 rounded-lg shadow-xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200"
-                      style={{ zIndex: Z_INDEX.SEARCH_RESULTS }}
-                    >
-                      <button
-                        type="button"
-                        onClick={() => { 
-                          setMode('routes'); 
-                          setShowModeSelector(false);
-                          // Limpiar al cambiar modo
-                          handleClearInput();
-                        }}
-                        className={`w-full text-left px-3 py-2 text-sm flex items-center gap-2 hover:bg-white/10 transition-colors ${mode === 'routes' ? 'text-secondary bg-white/5' : 'text-white'}`}
-                      >
-                        <BiBus /> Rutas
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => { 
-                          setMode('places'); 
-                          setShowModeSelector(false);
-                          // Limpiar al cambiar modo
-                          handleClearInput();
-                        }}
-                        className={`w-full text-left px-3 py-2 text-sm flex items-center gap-2 hover:bg-white/10 transition-colors ${mode === 'places' ? 'text-secondary bg-white/5' : 'text-white'}`}
-                      >
-                        <BiMap /> Lugares
-                      </button>
-                    </div>
-                  )}
+                <div className="pl-3 text-secondary">
+                  <BiBus className="text-xl" />
                 </div>
 
                 <input
@@ -315,7 +246,7 @@ export const Search: React.FC = () => {
                   onFocus={() => setShowResults(true)}
                   value={inputValue}
                   type="text"
-                  placeholder={mode === 'routes' ? "Buscar ruta (ej: 42, 101, Especial)" : "Buscar municipio, departamento..."}
+                  placeholder="Buscar rutas, hospitales, restaurantes..."
                   className="w-full h-12 px-3 text-white bg-transparent outline-none placeholder-white/30"
                   autoComplete="off"
                 />
@@ -326,7 +257,7 @@ export const Search: React.FC = () => {
                     onClick={handleClearInput}
                     className="mr-2 p-2 rounded-lg hover:bg-white/10 text-white/40 hover:text-white transition-colors"
                   >
-                    {isSelfLoading ? <BiLoaderAlt className="text-xl animate-spin text-secondary" /> : <ClearIcon className="text-xl" />}
+                    {isSelfLoading || isSearchingPlaces ? <BiLoaderAlt className="text-xl animate-spin text-secondary" /> : <ClearIcon className="text-xl" />}
                   </button>
                 )}
               </div>
@@ -342,22 +273,73 @@ export const Search: React.FC = () => {
                   animate-slide-up pointer-events-auto
                 "
               >
-                {mode === 'routes' && (
-                  <>
-                    {filteredRoutes.length > 0 ? (
+                {/* Resultados unificados */}
+                {(filteredRoutes?.length > 0 || placeResults?.length > 0) ? (
+                  <div className="divide-y divide-white/5">
+                    {/* Lugares */}
+                    {placeResults?.length > 0 && (
                       <div>
-                        <div className="px-4 py-2 text-xs font-semibold text-white/40 uppercase tracking-wider bg-white/5">
-                          Resultados encontrados ({filteredRoutes.length})
-                        </div>
+                        <p className="px-4 py-2 text-xs font-semibold text-secondary uppercase tracking-wider bg-secondary/10">
+                          Lugares
+                        </p>
+                        {placeResults.map((place) => (
+                          <button
+                            key={place.id}
+                            onClick={() => {
+                              updateConfig({
+                                center: { lat: place.lat, lng: place.lng },
+                                zoom: 16,
+                              });
+                              setPin(new LngLat(place.lng, place.lat));
+                              setSelectedResult(place);
+                              setShowResults(false);
+                            }}
+                            className="w-full text-left px-4 py-3 hover:bg-white/5 transition-colors"
+                          >
+                            <div className="flex items-start gap-3">
+                              <BiMap className="text-secondary mt-0.5 flex-shrink-0" />
+                              <div className="flex-1 min-w-0">
+                                <p className="font-semibold text-white truncate">{place.name}</p>
+                                {place.address && (
+                                  <p className="text-xs text-white/50 truncate">
+                                    {[place.address.city, place.address.state]
+                                      .filter(Boolean)
+                                      .join(', ')}
+                                  </p>
+                                )}
+                                <div className="flex items-center gap-2 mt-1">
+                                  <span className="text-xs text-white/40 capitalize">
+                                    {place.type}
+                                  </span>
+                                  {place.distance_m && (
+                                    <>
+                                      <span className="text-xs text-white/30">•</span>
+                                      <span className="text-xs text-white/40">
+                                        {place.distance_m < 1000
+                                          ? `${Math.round(place.distance_m)}m`
+                                          : `${(place.distance_m / 1000).toFixed(1)}km`}
+                                      </span>
+                                    </>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Rutas */}
+                    {filteredRoutes?.length > 0 && (
+                      <div>
+                        <p className="px-4 py-2 text-xs font-semibold text-secondary uppercase tracking-wider bg-secondary/10">
+                          Rutas de Transporte
+                        </p>
                         {filteredRoutes.map((ruta) => (
                           <div
                             key={ruta.codigo}
                             onClick={() => handleClick(ruta.nombre, 'ROUTE', ruta.codigo)}
-                            className="
-                              group px-4 py-3 cursor-pointer 
-                              border-b border-white/5 last:border-0
-                              hover:bg-white/5 transition-colors
-                            "
+                            className="group px-4 py-3 cursor-pointer border-b border-white/5 last:border-0 hover:bg-white/5 transition-colors"
                           >
                             <div className="flex justify-between items-center">
                               <div className="flex items-center gap-3">
@@ -380,90 +362,23 @@ export const Search: React.FC = () => {
                           </div>
                         ))}
                       </div>
-                    ) : (
-                      <div className="p-8 text-center">
-                        {isSelfLoading ? (
-                          <div className="flex flex-col items-center gap-2">
-                            <BiLoaderAlt className="text-3xl animate-spin text-secondary" />
-                            <p className="text-white/60">Cargando catálogo de rutas...</p>
-                          </div>
-                        ) : (
-                          <>
-                            <FaBus className="mx-auto text-4xl text-white/20 mb-3" />
-                            <p className="text-white/60">No encontramos rutas con ese nombre</p>
-                            <p className="text-xs text-white/40 mt-1">Prueba buscando por número (ej: 42, 101)</p>
-                          </>
-                        )}
-                      </div>
                     )}
-                  </>
-                )}
-
-                {mode === 'places' && (
-                  <>
-                    {hasResults ? (
-                      <div className="divide-y divide-white/5">
-                        {filteredDepartamentos.length > 0 && (
-                          <div>
-                            <p className="px-4 py-2 text-xs font-semibold text-secondary uppercase tracking-wider bg-secondary/10">
-                              Departamentos
-                            </p>
-                            {filteredDepartamentos.map((depto, index) => (
-                              <button
-                                key={index}
-                                onClick={() => handleClick(depto, 'D')}
-                                className="w-full text-left px-4 py-3 hover:bg-white/5 transition-colors flex items-center gap-3"
-                              >
-                                <BiMap className="text-white/40" />
-                                <span className="text-white">{depto}</span>
-                              </button>
-                            ))}
-                          </div>
-                        )}
-
-                        {filteredMunicipios.length > 0 && (
-                          <div>
-                            <p className="px-4 py-2 text-xs font-semibold text-secondary uppercase tracking-wider bg-secondary/10">
-                              Municipios
-                            </p>
-                            {filteredMunicipios.map((muni, index) => (
-                              <button
-                                key={index}
-                                onClick={() => handleClick(muni, 'M')}
-                                className="w-full text-left px-4 py-3 hover:bg-white/5 transition-colors flex items-center gap-3"
-                              >
-                                <BiMap className="text-white/40" />
-                                <span className="text-white">{muni}</span>
-                              </button>
-                            ))}
-                          </div>
-                        )}
-
-                        {filteredDistritos.length > 0 && (
-                          <div>
-                            <p className="px-4 py-2 text-xs font-semibold text-secondary uppercase tracking-wider bg-secondary/10">
-                              Distritos
-                            </p>
-                            {filteredDistritos.map((dist, index) => (
-                              <button
-                                key={index}
-                                onClick={() => handleClick(dist, 'NAM')}
-                                className="w-full text-left px-4 py-3 hover:bg-white/5 transition-colors flex items-center gap-3"
-                              >
-                                <BiMap className="text-white/40" />
-                                <span className="text-white">{dist}</span>
-                              </button>
-                            ))}
-                          </div>
-                        )}
+                  </div>
+                ) : (
+                  <div className="p-8 text-center">
+                    {isSelfLoading || isSearchingPlaces ? (
+                      <div className="flex flex-col items-center gap-2">
+                        <BiLoaderAlt className="text-3xl animate-spin text-secondary" />
+                        <p className="text-white/60">Buscando...</p>
                       </div>
-                    ) : (
-                      <div className="p-8 text-center">
-                        <BiMap className="mx-auto text-4xl text-white/20 mb-3" />
-                        <p className="text-white/60">No encontramos lugares cercanos</p>
-                      </div>
-                    )}
-                  </>
+                    ) : inputValue ? (
+                      <>
+                        <FaBus className="mx-auto text-4xl text-white/20 mb-3" />
+                        <p className="text-white/60">No encontramos resultados</p>
+                        <p className="text-xs text-white/40 mt-1">Prueba: 42, hospital, restaurante</p>
+                      </>
+                    ) : null}
+                  </div>
                 )}
               </div>
             )}

@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 
-type Tab = 'info' | 'annotations';
+type Tab = 'info' | 'annotations' | 'tripPlanner';
 type SheetState = 'peek' | 'half' | 'full';
 
 interface BottomSheetStore {

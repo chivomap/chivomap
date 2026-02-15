@@ -1,15 +1,17 @@
 import { create } from 'zustand';
 
 interface SearchStore {
-  showResults: boolean;
   inputValue: string;
-  setShowResults: (show: boolean) => void;
+  showResults: boolean;
+  
   setInputValue: (value: string) => void;
+  setShowResults: (show: boolean) => void;
 }
 
 export const useSearchStore = create<SearchStore>((set) => ({
-  showResults: false,
   inputValue: '',
-  setShowResults: (show) => set({ showResults: show }),
+  showResults: false,
+  
   setInputValue: (value) => set({ inputValue: value }),
+  setShowResults: (show) => set({ showResults: show }),
 }));
