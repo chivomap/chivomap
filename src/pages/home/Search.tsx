@@ -187,26 +187,29 @@ export const Search: React.FC = () => {
   // --- Unified Search Logic with Lazy Loading ---
   type PlaceItem = { name: string; type: 'D' | 'M' | 'distrito' };
   
-  const fuseInstance = useMemo(() => {
-    if (mode === 'places') {
-      const allPlaces: PlaceItem[] = [
-        ...geoData.departamentos.map(d => ({ name: d, type: 'D' as const })),
-        ...geoData.municipios.map(m => ({ name: m, type: 'M' as const })),
-        ...geoData.distritos.map(d => ({ name: d, type: 'distrito' as const }))
-      ];
-      return new Fuse(allPlaces, {
-        threshold: 0.3,
-        keys: ['name']
-      });
-    } else {
-      return new Fuse(allRoutes, {
-        threshold: 0.2,
-        useExtendedSearch: true,
-        ignoreLocation: true,
-        keys: ['nombre', 'codigo']
-      });
-    }
-  }, [mode, geoData, allRoutes]);
+  // Memoize Fuse instances separately to avoid re-creation when unrelated data changes
+  const placesFuse = useMemo(() => {
+    const allPlaces: PlaceItem[] = [
+      ...geoData.departamentos.map(d => ({ name: d, type: 'D' as const })),
+      ...geoData.municipios.map(m => ({ name: m, type: 'M' as const })),
+      ...geoData.distritos.map(d => ({ name: d, type: 'distrito' as const }))
+    ];
+    return new Fuse(allPlaces, {
+      threshold: 0.3,
+      keys: ['name']
+    });
+  }, [geoData]);
+
+  const routesFuse = useMemo(() => {
+    return new Fuse(allRoutes, {
+      threshold: 0.2,
+      useExtendedSearch: true,
+      ignoreLocation: true,
+      keys: ['nombre', 'codigo']
+    });
+  }, [allRoutes]);
+
+  const fuseInstance = mode === 'places' ? placesFuse : routesFuse;
 
   const searchResults = useMemo(() => {
     if (!inputValue) return { departamentos: [], municipios: [], distritos: [], routes: [] };
@@ -235,7 +238,7 @@ export const Search: React.FC = () => {
         routes: results.slice(0, 20).map(r => r.item as typeof allRoutes[0])
       };
     }
-  }, [inputValue, mode, fuseInstance, allRoutes]);
+  }, [inputValue, mode, fuseInstance]);
 
   const { departamentos: filteredDepartamentos, municipios: filteredMunicipios, distritos: filteredDistritos, routes: filteredRoutes } = searchResults;
 
