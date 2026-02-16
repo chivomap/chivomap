@@ -125,7 +125,7 @@ const selectBestVariant = (routes: RutaFeature[], leg: TripLeg, direction: 'IDA'
 };
 
 export const TripRouteLayer: React.FC<{ selectedOptionIndex: number | null }> = ({ selectedOptionIndex }) => {
-  const { tripPlan, origin, destination } = useTripPlannerStore();
+  const { tripPlan, origin, destination, focusedLegIndex } = useTripPlannerStore();
 
   const option = tripPlan && selectedOptionIndex !== null ? tripPlan.options[selectedOptionIndex] : null;
   const [busFeatures, setBusFeatures] = useState<FeatureCollection | null>(null);
@@ -157,14 +157,16 @@ export const TripRouteLayer: React.FC<{ selectedOptionIndex: number | null }> = 
     let cancelled = false;
 
     const loadBusRoutes = async () => {
+      // Limpiar render anterior al cambiar de opcion para evitar solapamiento visual
+      setBusFeatures(null);
+
       if (!option) {
-        setBusFeatures(null);
         return;
       }
 
       const busLegs = option.legs
-        .filter((leg) => leg.type === 'bus' && leg.route_code)
-        .map((leg, index) => ({ ...leg, _index: index }));
+        .map((leg, index) => ({ ...leg, _index: index }))
+        .filter((leg) => leg.type === 'bus' && leg.route_code);
 
       if (busLegs.length === 0) {
         setBusFeatures(null);
@@ -197,6 +199,7 @@ export const TripRouteLayer: React.FC<{ selectedOptionIndex: number | null }> = 
         const detail = detailMap.get(leg.route_code as string);
         const direction = resolveDirection(leg);
         const color = busPalette[leg._index % busPalette.length];
+        const isActive = focusedLegIndex === null || focusedLegIndex === leg._index;
 
         if (detail && detail.routes.length > 0) {
           const selected = selectBestVariant(detail.routes, leg, direction);
@@ -211,6 +214,7 @@ export const TripRouteLayer: React.FC<{ selectedOptionIndex: number | null }> = 
               color,
               routeCode: leg.route_code,
               direction,
+              isActive,
             },
           };
         }
@@ -228,6 +232,7 @@ export const TripRouteLayer: React.FC<{ selectedOptionIndex: number | null }> = 
             color,
             routeCode: leg.route_code,
             direction,
+            isActive,
           },
         };
       });
@@ -245,7 +250,7 @@ export const TripRouteLayer: React.FC<{ selectedOptionIndex: number | null }> = 
     return () => {
       cancelled = true;
     };
-  }, [option]);
+  }, [option, focusedLegIndex]);
 
   const hasOption = Boolean(option);
 
@@ -271,6 +276,7 @@ export const TripRouteLayer: React.FC<{ selectedOptionIndex: number | null }> = 
       id: `walk-${leg._index}`,
       properties: {
         color: walkPalette[leg._index % walkPalette.length],
+        isActive: focusedLegIndex === null || focusedLegIndex === leg._index,
       },
       geometry: {
         type: 'LineString' as const,
@@ -327,7 +333,7 @@ export const TripRouteLayer: React.FC<{ selectedOptionIndex: number | null }> = 
     return () => {
       cancelled = true;
     };
-  }, [option]);
+  }, [option, focusedLegIndex]);
 
   // Paradas de transbordo
   const transferStops = option
@@ -347,8 +353,18 @@ export const TripRouteLayer: React.FC<{ selectedOptionIndex: number | null }> = 
             type="line"
             paint={{
               'line-color': '#ffffff',
-              'line-width': 6,
-              'line-opacity': 0.5,
+              'line-width': [
+                'case',
+                ['==', ['get', 'isActive'], true],
+                6,
+                4,
+              ],
+              'line-opacity': [
+                'case',
+                ['==', ['get', 'isActive'], true],
+                0.5,
+                0.2,
+              ],
             }}
             layout={{
               'line-cap': 'round',
@@ -360,8 +376,18 @@ export const TripRouteLayer: React.FC<{ selectedOptionIndex: number | null }> = 
             type="line"
             paint={{
               'line-color': ['get', 'color'],
-              'line-width': 4,
-              'line-opacity': 0.9,
+              'line-width': [
+                'case',
+                ['==', ['get', 'isActive'], true],
+                4,
+                2,
+              ],
+              'line-opacity': [
+                'case',
+                ['==', ['get', 'isActive'], true],
+                0.95,
+                0.25,
+              ],
             }}
             layout={{
               'line-cap': 'round',
@@ -382,6 +408,7 @@ export const TripRouteLayer: React.FC<{ selectedOptionIndex: number | null }> = 
               'icon-allow-overlap': true,
               'icon-ignore-placement': true,
             }}
+            filter={['==', ['get', 'isActive'], true]}
             paint={{
               'icon-opacity': 0.95,
               'icon-color': '#0f172a',
@@ -398,8 +425,18 @@ export const TripRouteLayer: React.FC<{ selectedOptionIndex: number | null }> = 
             type="line"
             paint={{
               'line-color': ['get', 'color'],
-              'line-width': 3,
-              'line-opacity': 0.6,
+              'line-width': [
+                'case',
+                ['==', ['get', 'isActive'], true],
+                3,
+                2,
+              ],
+              'line-opacity': [
+                'case',
+                ['==', ['get', 'isActive'], true],
+                0.75,
+                0.25,
+              ],
               'line-dasharray': [2, 2]
             }}
             layout={{

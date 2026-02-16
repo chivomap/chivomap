@@ -44,7 +44,7 @@ export const MapLibreMap: React.FC = () => {
   const { selectedRoute, nearbyRoutes, showNearbyOnMap, selectRoute, setHoveredRoute, setOverlappingRoutes } = useRutasStore();
   const { currentMapStyle, setMapStyle } = useThemeStore();
   const { openNearbyRoutes } = useBottomSheet();
-  const { selectedOptionIndex, tripPlan } = useTripPlannerStore();
+  const { selectedOptionIndex, tripPlan, focusedLegIndex } = useTripPlannerStore();
   const { center, zoom } = config;
 
   const mapRef = useRef<MapRef>(null);
@@ -107,7 +107,10 @@ export const MapLibreMap: React.FC = () => {
     const option = tripPlan.options[selectedOptionIndex];
     if (!option) return;
 
-    const key = `${selectedOptionIndex}:${option.legs
+    const focusLeg = focusedLegIndex !== null ? option.legs[focusedLegIndex] : null;
+    const legsForBounds = focusLeg ? [focusLeg] : option.legs;
+
+    const key = `${selectedOptionIndex}:${focusedLegIndex ?? 'all'}:${legsForBounds
       .map((leg) => `${leg.from.lat.toFixed(4)},${leg.from.lng.toFixed(4)}:${leg.to.lat.toFixed(4)},${leg.to.lng.toFixed(4)}`)
       .join('|')}`;
     if (lastTripViewKey.current === key) return;
@@ -120,7 +123,7 @@ export const MapLibreMap: React.FC = () => {
       }
     };
 
-    option.legs.forEach((leg) => {
+    legsForBounds.forEach((leg) => {
       addPoint(leg.from.lng, leg.from.lat);
       addPoint(leg.to.lng, leg.to.lat);
     });
@@ -136,7 +139,7 @@ export const MapLibreMap: React.FC = () => {
         bearing: -15,
       });
     }
-  }, [tripPlan, selectedOptionIndex]);
+  }, [tripPlan, selectedOptionIndex, focusedLegIndex]);
 
   const handleMapLoad = useCallback(() => {
     if (mapRef.current) {

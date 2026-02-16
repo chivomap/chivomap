@@ -9,6 +9,34 @@ import { useMapStore } from '../../../../store/mapStore';
 import { useBottomSheet } from '../../../../../hooks/useBottomSheet';
 import { CloseButton } from '../../../ui/CloseButton';
 
+const ExpandableText: React.FC<{ text: string; maxChars?: number; className?: string }> = ({
+  text,
+  maxChars = 72,
+  className = '',
+}) => {
+  const [expanded, setExpanded] = useState(false);
+  const isLong = text.length > maxChars;
+  const visible = expanded || !isLong ? text : `${text.slice(0, maxChars).trimEnd()}...`;
+
+  return (
+    <span className={className}>
+      {visible}{' '}
+      {isLong && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            setExpanded((prev) => !prev);
+          }}
+          className="text-secondary/90 hover:text-secondary underline decoration-secondary/40"
+        >
+          {expanded ? 'menos' : 'mas'}
+        </button>
+      )}
+    </span>
+  );
+};
+
 export const TripPlannerSheet: React.FC = () => {
   const {
     origin,
@@ -18,6 +46,7 @@ export const TripPlannerSheet: React.FC = () => {
     setDestination,
     setTripPlan,
     setSelectedOptionIndex,
+    setFocusedLegIndex,
     setIsSelectingOrigin,
     setIsSelectingDestination,
     swapLocations,
@@ -143,6 +172,7 @@ export const TripPlannerSheet: React.FC = () => {
       const plan = await planTrip({ origin, destination });
       setTripPlan(plan);
       setSelectedOptionIndex(plan.options.length > 0 ? 0 : null);
+      setFocusedLegIndex(null);
     } catch (error) {
       setPlanError('No se pudo planificar el viaje. Intenta de nuevo.');
       console.error('Error planning trip:', error);
@@ -154,7 +184,8 @@ export const TripPlannerSheet: React.FC = () => {
   useEffect(() => {
     setTripPlan(null);
     setSelectedOptionIndex(null);
-  }, [origin, destination, setTripPlan, setSelectedOptionIndex]);
+    setFocusedLegIndex(null);
+  }, [origin, destination, setTripPlan, setSelectedOptionIndex, setFocusedLegIndex]);
 
   // Si hay un plan, mostrar resultados
   if (tripPlan) {
@@ -166,6 +197,7 @@ export const TripPlannerSheet: React.FC = () => {
     setIsSelectingDestination(false);
     setTripPlan(null);
     setSelectedOptionIndex(null);
+    setFocusedLegIndex(null);
     closeContent();
   };
 
@@ -268,7 +300,7 @@ export const TripPlannerSheet: React.FC = () => {
                 }}
                 className="w-full px-3 py-2 text-left hover:bg-white/10 rounded-lg transition-colors"
               >
-                <div className="font-medium text-white text-sm">{place.name}</div>
+                <div className="font-medium text-white text-sm truncate" title={place.name}>{place.name}</div>
                 <div className="text-xs text-white/60">{place.type}</div>
               </button>
             ))}
@@ -295,7 +327,7 @@ export const TripPlannerSheet: React.FC = () => {
                 }}
                 className="w-full px-3 py-2 text-left hover:bg-white/10 rounded-lg transition-colors"
               >
-                <div className="font-medium text-white text-sm">{place.name}</div>
+                <div className="font-medium text-white text-sm truncate" title={place.name}>{place.name}</div>
                 <div className="text-xs text-white/60">{place.type}</div>
               </button>
             ))}
@@ -326,10 +358,10 @@ export const TripPlannerSheet: React.FC = () => {
                   }}
                   className="w-full px-3 py-2 text-left hover:bg-white/10 rounded-lg transition-colors"
                 >
-                  <div className="font-medium text-white text-sm">{place.name}</div>
-                  <div className="text-xs text-white/60">{place.type}</div>
-                </button>
-              ))}
+                <div className="font-medium text-white text-sm truncate" title={place.name}>{place.name}</div>
+                <div className="text-xs text-white/60">{place.type}</div>
+              </button>
+            ))}
             </div>
           )
         )}
@@ -361,12 +393,13 @@ export const TripPlannerSheet: React.FC = () => {
 
 // Componente para mostrar resultados
 const TripPlanResults: React.FC = () => {
-  const { tripPlan, setTripPlan, selectedOptionIndex, setSelectedOptionIndex } = useTripPlannerStore();
+  const { tripPlan, setTripPlan, selectedOptionIndex, setSelectedOptionIndex, focusedLegIndex, setFocusedLegIndex } = useTripPlannerStore();
   const { closeContent } = useBottomSheet();
 
   const handleClose = () => {
     setTripPlan(null);
     setSelectedOptionIndex(null);
+    setFocusedLegIndex(null);
     closeContent();
   };
 
@@ -378,6 +411,7 @@ const TripPlanResults: React.FC = () => {
             onClick={() => {
               setTripPlan(null);
               setSelectedOptionIndex(null);
+              setFocusedLegIndex(null);
             }}
             className="flex items-center gap-2 text-secondary hover:text-secondary/80"
           >
@@ -421,6 +455,7 @@ const TripPlanResults: React.FC = () => {
             onClick={() => {
               setTripPlan(null);
               setSelectedOptionIndex(null);
+              setFocusedLegIndex(null);
             }}
             className="justify-self-start flex items-center gap-2 text-secondary hover:text-secondary/80 font-medium"
           >
@@ -442,7 +477,10 @@ const TripPlanResults: React.FC = () => {
             className={`relative group cursor-pointer transition-all ${
               selectedOptionIndex === idx ? 'ring-2 ring-secondary' : ''
             }`}
-            onClick={() => setSelectedOptionIndex(selectedOptionIndex === idx ? null : idx)}
+            onClick={() => {
+              setSelectedOptionIndex(selectedOptionIndex === idx ? null : idx);
+              setFocusedLegIndex(null);
+            }}
           >
             {/* Glow effect */}
             <div className="absolute inset-0 bg-secondary/10 rounded-xl blur opacity-0 group-hover:opacity-100 transition-opacity" />
@@ -468,8 +506,21 @@ const TripPlanResults: React.FC = () => {
 
               {/* Resumen de rutas */}
               <div className="flex flex-wrap items-center gap-2 mb-3">
-                {option.legs.filter(leg => leg.type === 'bus').map((leg, legIdx) => (
-                  <div key={legIdx} className="flex items-center gap-1">
+                {option.legs
+                  .map((leg, legIdx) => ({ ...leg, legIdx }))
+                  .filter(leg => leg.type === 'bus')
+                  .map((leg) => (
+                  <button
+                    key={leg.legIdx}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedOptionIndex(idx);
+                      setFocusedLegIndex(leg.legIdx);
+                    }}
+                    className={`flex items-center gap-1 rounded-md transition-colors ${
+                      focusedLegIndex === leg.legIdx ? 'bg-white/10' : 'hover:bg-white/5'
+                    }`}
+                  >
                     <span className="px-2 py-1 bg-secondary/80 text-white text-xs font-bold rounded">
                       {leg.route_name || leg.route_code}
                     </span>
@@ -478,8 +529,21 @@ const TripPlanResults: React.FC = () => {
                         {leg.direction === 'IDA' ? 'I' : 'R'}
                       </span>
                     )}
-                  </div>
+                  </button>
                 ))}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setFocusedLegIndex(null);
+                  }}
+                  className={`text-[11px] px-2 py-1 rounded border transition-colors ${
+                    focusedLegIndex === null
+                      ? 'border-secondary/40 text-secondary bg-secondary/10'
+                      : 'border-white/15 text-white/50 hover:text-white'
+                  }`}
+                >
+                  Ver todo
+                </button>
                 {option.total_transfers > 0 && (
                   <span className="text-xs text-white/60">
                     • {option.total_transfers} transbordo{option.total_transfers > 1 ? 's' : ''}
@@ -516,7 +580,16 @@ const TripPlanResults: React.FC = () => {
                               : 'Caminar';
 
                       return (
-                        <div key={legIdx} className="flex gap-3">
+                        <button
+                          key={legIdx}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setFocusedLegIndex(legIdx);
+                          }}
+                          className={`w-full flex gap-3 text-left rounded-lg p-2 transition-colors ${
+                            focusedLegIndex === legIdx ? 'bg-white/10 border border-secondary/30' : 'hover:bg-white/5'
+                          }`}
+                        >
                       {/* Icono */}
                           <div className="flex-shrink-0 relative">
                             <div className="absolute -top-1 -left-1 w-5 h-5 rounded-full bg-secondary text-primary text-[10px] font-bold flex items-center justify-center border border-white/30">
@@ -555,18 +628,32 @@ const TripPlanResults: React.FC = () => {
                         {formatDistance(leg.distance_m)} • {formatDuration(leg.duration_m)}
                       </div>
                       {leg.type === 'bus' && (leg.from_stop || leg.to_stop) && (
-                        <div className="text-xs text-white/40">
-                          {leg.from_stop?.nombre ? `Sube: ${leg.from_stop.nombre}` : 'Sube en parada cercana'}
-                          {leg.to_stop?.nombre ? ` • Baja: ${leg.to_stop.nombre}` : ''}
+                        <div className="text-xs text-white/40 space-y-1">
+                          <div>
+                            <span className="text-white/50">Sube:</span>{' '}
+                            <ExpandableText
+                              text={leg.from_stop?.nombre || 'Parada cercana'}
+                              maxChars={58}
+                            />
+                          </div>
+                          {leg.to_stop?.nombre && (
+                            <div>
+                              <span className="text-white/50">Baja:</span>{' '}
+                              <ExpandableText
+                                text={leg.to_stop.nombre}
+                                maxChars={58}
+                              />
+                            </div>
+                          )}
                         </div>
                       )}
                       {leg.instructions && (
                         <div className="text-xs text-white/40 leading-relaxed">
-                          {leg.instructions}
+                          <ExpandableText text={leg.instructions} maxChars={90} />
                         </div>
                       )}
                       </div>
-                    </div>
+                    </button>
                       );
                     });
                   })()}

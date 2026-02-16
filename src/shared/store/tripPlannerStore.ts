@@ -6,6 +6,7 @@ interface TripPlannerState {
   destination: Location | null;
   tripPlan: TripPlanResponse | null;
   selectedOptionIndex: number | null;
+  focusedLegIndex: number | null;
   isSelectingOrigin: boolean;
   isSelectingDestination: boolean;
   
@@ -13,6 +14,7 @@ interface TripPlannerState {
   setDestination: (location: Location | null) => void;
   setTripPlan: (plan: TripPlanResponse | null) => void;
   setSelectedOptionIndex: (index: number | null) => void;
+  setFocusedLegIndex: (index: number | null) => void;
   setIsSelectingOrigin: (selecting: boolean) => void;
   setIsSelectingDestination: (selecting: boolean) => void;
   swapLocations: () => void;
@@ -24,6 +26,7 @@ export const useTripPlannerStore = create<TripPlannerState>((set, get) => ({
   destination: null,
   tripPlan: null,
   selectedOptionIndex: null,
+  focusedLegIndex: null,
   isSelectingOrigin: false,
   isSelectingDestination: false,
   
@@ -31,6 +34,7 @@ export const useTripPlannerStore = create<TripPlannerState>((set, get) => ({
   setDestination: (location) => set({ destination: location }),
   setTripPlan: (plan) => set({ tripPlan: plan }),
   setSelectedOptionIndex: (index) => set({ selectedOptionIndex: index }),
+  setFocusedLegIndex: (index) => set({ focusedLegIndex: index }),
   setIsSelectingOrigin: (selecting) => set({ isSelectingOrigin: selecting }),
   setIsSelectingDestination: (selecting) => set({ isSelectingDestination: selecting }),
   
@@ -44,6 +48,7 @@ export const useTripPlannerStore = create<TripPlannerState>((set, get) => ({
     destination: null,
     tripPlan: null,
     selectedOptionIndex: null,
+    focusedLegIndex: null,
     isSelectingOrigin: false,
     isSelectingDestination: false,
   }),
