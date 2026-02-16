@@ -4,6 +4,7 @@ import { useRutasStore } from '../../../../store/rutasStore';
 import { useParadasStore } from '../../../../store/paradasStore';
 import { useBottomSheetStore } from '../../../../store/bottomSheetStore';
 import { RouteCodeBadge } from '../../../rutas/RouteCodeBadge';
+import { CloseButton } from '../../../ui/CloseButton';
 import type { RutaNearby } from '../../../../types/rutas';
 
 export const NearbyRoutesList: React.FC = React.memo(() => {
@@ -106,12 +107,7 @@ export const NearbyRoutesList: React.FC = React.memo(() => {
               : 'No se encontraron rutas en esta área'}
           </p>
         </div>
-        <button
-          onClick={clearNearbyRoutes}
-          className="text-xs text-red-400 hover:text-red-300 px-3 py-1.5 hover:bg-red-500/10 rounded-lg transition-colors font-medium"
-        >
-          Limpiar
-        </button>
+        <CloseButton onClick={clearNearbyRoutes} title="Limpiar" />
       </div>
 
       {searchLocation && (

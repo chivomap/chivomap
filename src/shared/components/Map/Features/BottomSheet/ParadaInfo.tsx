@@ -1,9 +1,9 @@
 import React, { useEffect, useRef } from 'react';
-import { BiX } from 'react-icons/bi';
 import { useParadasStore } from '../../../../store/paradasStore';
 import { useRutasStore } from '../../../../store/rutasStore';
 import { useMapStore } from '../../../../store/mapStore';
 import type { Parada } from '../../../../types/paradas';
+import { CloseButton } from '../../../ui/CloseButton';
 
 interface ParadaInfoProps {
   parada: Parada;
@@ -92,13 +92,7 @@ export const ParadaInfo: React.FC<ParadaInfoProps> = ({ parada }) => {
             </p>
           </div>
         </div>
-        <button
-          onClick={handleClose}
-          className="p-1.5 hover:bg-red-500/10 rounded-lg transition-colors text-red-400 hover:text-red-300"
-          title="Cerrar"
-        >
-          <BiX className="text-2xl" />
-        </button>
+        <CloseButton onClick={handleClose} />
       </div>
 
       <div className="space-y-2 text-sm">

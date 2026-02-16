@@ -1,6 +1,7 @@
 import React from 'react';
 import { useParadasStore } from '../../../../store/paradasStore';
 import { useRutasStore } from '../../../../store/rutasStore';
+import { CloseButton } from '../../../ui/CloseButton';
 import type { Parada } from '../../../../types/paradas';
 
 export const NearbyParadasList: React.FC = () => {
@@ -22,12 +23,7 @@ export const NearbyParadasList: React.FC = () => {
               : 'No se encontraron paradas en esta área'}
           </p>
         </div>
-        <button
-          onClick={clearNearbyParadas}
-          className="text-xs text-red-400 hover:text-red-300 px-3 py-1.5 hover:bg-red-500/10 rounded-lg transition-colors font-medium"
-        >
-          Limpiar
-        </button>
+        <CloseButton onClick={clearNearbyParadas} title="Limpiar" />
       </div>
 
       {searchLocation && (
