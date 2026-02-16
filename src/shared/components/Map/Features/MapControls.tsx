@@ -1,12 +1,10 @@
 import React from 'react';
 import { useMap } from 'react-map-gl/maplibre';
 import { BiPlus, BiMinus, BiFullscreen, BiExitFullscreen, BiCurrentLocation, BiX, BiDotsVerticalRounded } from 'react-icons/bi';
-import { MdDirectionsBus, MdContentCopy, MdDirections } from 'react-icons/md';
+import { MdDirectionsBus, MdContentCopy } from 'react-icons/md';
 import { usePinStore } from '../../../store/pinStore';
 import { useBottomSheet } from '../../../../hooks/useBottomSheet';
 import { useMapStore } from '../../../store/mapStore';
-import { useTripPlannerStore } from '../../../store/tripPlannerStore';
-import { env } from '../../../config/env';
 
 export const MapControls: React.FC = () => {
   const { current: map } = useMap();
@@ -15,9 +13,8 @@ export const MapControls: React.FC = () => {
   const [showPinMenu, setShowPinMenu] = React.useState(false);
   const menuRef = React.useRef<HTMLDivElement>(null);
   const { pin, clearPin } = usePinStore();
-  const { openNearbyRoutes, openTripPlanner } = useBottomSheet();
+  const { openNearbyRoutes } = useBottomSheet();
   const { updateConfig, config } = useMapStore();
-  const { reset: resetTripPlanner } = useTripPlannerStore();
 
   const zoomIn = () => {
     if (map) map.zoomIn();
@@ -66,49 +63,6 @@ export const MapControls: React.FC = () => {
           console.error('❌ Location error:', error);
           alert('No se pudo obtener tu ubicación. Verifica los permisos del navegador.');
           setIsLocating(false);
-        },
-        {
-          enableHighAccuracy: false,
-          timeout: 5000,
-          maximumAge: 30000
-        }
-      );
-    } else {
-      alert('Tu navegador no soporta geolocalización');
-    }
-  };
-
-  // Buscar rutas cercanas
-  const handleNearbyRoutes = () => {
-    const startTime = Date.now();
-    console.log(`[${new Date().toISOString()}] 🚌 Nearby routes button clicked`);
-    
-    if (navigator.geolocation) {
-      console.log(`[${new Date().toISOString()}] 📡 Requesting geolocation...`);
-      
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          const geoTime = Date.now();
-          const { latitude, longitude } = position.coords;
-          console.log(`[${new Date().toISOString()}] ✅ Location received (took ${geoTime - startTime}ms):`, { lat: latitude, lng: longitude });
-          
-          console.log(`[${new Date().toISOString()}] 🗺️ Updating map center...`);
-          updateConfig({ 
-            ...config, 
-            center: { lat: latitude, lng: longitude }, 
-            zoom: 14
-          });
-          const mapTime = Date.now();
-          console.log(`[${new Date().toISOString()}] ✅ Map updated (took ${mapTime - geoTime}ms)`);
-          
-          console.log(`[${new Date().toISOString()}] 🔍 Fetching nearby routes (automatic radius)...`);
-          openNearbyRoutes(latitude, longitude); // Sin radio = búsqueda automática
-          const totalTime = Date.now();
-          console.log(`[${new Date().toISOString()}] ⏱️ Total time: ${totalTime - startTime}ms`);
-        },
-        (error) => {
-          console.error(`[${new Date().toISOString()}] ❌ Location error (took ${Date.now() - startTime}ms):`, error);
-          alert('No se pudo obtener tu ubicación. Verifica los permisos del navegador.');
         },
         {
           enableHighAccuracy: false,
@@ -181,29 +135,6 @@ export const MapControls: React.FC = () => {
         ) : (
           <BiFullscreen className="text-secondary text-xl sm:text-xl mx-auto" />
         )}
-      </button>
-
-      {/* Trip Planner Button */}
-      {env.FEATURE_TRIP_PLANNER && (
-        <button
-          onClick={() => {
-            resetTripPlanner();
-            openTripPlanner();
-          }}
-          className="w-10 h-10 sm:w-10 sm:h-10 bg-secondary shadow-lg rounded-lg hover:bg-secondary/80 transition-colors touch-manipulation"
-          title="Planificar viaje"
-        >
-          <MdDirections className="text-white text-xl sm:text-xl mx-auto" />
-        </button>
-      )}
-
-      {/* Nearby Routes Button */}
-      <button
-        onClick={handleNearbyRoutes}
-        className="w-10 h-10 sm:w-10 sm:h-10 bg-primary shadow-lg rounded-lg hover:bg-primary/80 transition-colors touch-manipulation"
-        title="Rutas cercanas"
-      >
-        <MdDirectionsBus className="text-secondary text-xl sm:text-xl mx-auto" />
       </button>
 
       {/* My Location Button */}

@@ -34,7 +34,7 @@ export const BottomSheet: React.FC = () => {
     switch (sheetState) {
       case 'peek': return '140px';
       case 'half': return '50dvh';
-      case 'full': return '90dvh';
+      case 'full': return '100dvh';
       default: return '140px';
     }
   }, [sheetState]);

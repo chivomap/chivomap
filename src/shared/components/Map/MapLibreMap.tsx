@@ -8,6 +8,7 @@ import { useBottomSheet } from '../../../hooks/useBottomSheet';
 import { env } from '../../config/env';
 import { MapStyle } from '../../data/mapStyles';
 import { useThemeStore } from '../../store/themeStore';
+import { useBottomSheetStore } from '../../store/bottomSheetStore';
 
 import { MapControls, MapMarker, MapScale, MapStyleSelector, GeoLayer, GeoDistritos } from './Features';
 import { UserLocationMarker } from './Features/UserLocationMarker';
@@ -43,12 +44,15 @@ export const MapLibreMap: React.FC = () => {
   const { pin, setPin } = usePinStore();
   const { selectedRoute, nearbyRoutes, showNearbyOnMap, selectRoute, setHoveredRoute, setOverlappingRoutes } = useRutasStore();
   const { currentMapStyle, setMapStyle } = useThemeStore();
-  const { openNearbyRoutes } = useBottomSheet();
-  const { selectedOptionIndex, tripPlan } = useTripPlannerStore();
+  const { openNearbyRoutes, isOpen: isDrawerOpen } = useBottomSheet();
+  const { selectedOptionIndex, tripPlan, focusedLegIndex } = useTripPlannerStore();
+  const { sheetState } = useBottomSheetStore();
   const { center, zoom } = config;
 
   const mapRef = useRef<MapRef>(null);
   const lastTripViewKey = useRef<string | null>(null);
+  const lastDrawerKeyRef = useRef<string>('');
+  const drawerShiftRef = useRef(0);
 
   // Initialize map style from store
   const [mapStyle, setMapStyleState] = useState<string>(currentMapStyle.url);
@@ -97,6 +101,40 @@ export const MapLibreMap: React.FC = () => {
     }
   }, [selectedRoute]);
 
+  useEffect(() => {
+    if (window.innerWidth >= 640 || !mapRef.current) return;
+
+    const key = `${isDrawerOpen ? 'open' : 'closed'}:${sheetState}`;
+    if (key === lastDrawerKeyRef.current) return;
+    lastDrawerKeyRef.current = key;
+
+    const map = mapRef.current.getMap();
+    if (!map) return;
+
+    let targetShift = 0;
+    if (isDrawerOpen) {
+      if (sheetState === 'peek') targetShift = 60;
+      if (sheetState === 'half') targetShift = Math.round(window.innerHeight * 0.16);
+      if (sheetState === 'full') targetShift = Math.round(window.innerHeight * 0.26);
+    }
+
+    const deltaShift = targetShift - drawerShiftRef.current;
+    drawerShiftRef.current = targetShift;
+
+    if (deltaShift === 0) return;
+
+    const centerPoint = map.project(map.getCenter());
+    // Drawer abajo => shift positivo mueve foco hacia abajo.
+    const nextCenter = map.unproject([centerPoint.x, centerPoint.y + deltaShift]);
+
+    map.easeTo({
+      center: nextCenter,
+      duration: 220,
+      easing: (t) => 1 - Math.pow(1 - t, 2),
+      essential: true,
+    });
+  }, [isDrawerOpen, sheetState]);
+
   // Focus on trip plan key points (origin/destination/transfers)
   useEffect(() => {
     if (!tripPlan || selectedOptionIndex === null || !mapRef.current) {
@@ -107,7 +145,10 @@ export const MapLibreMap: React.FC = () => {
     const option = tripPlan.options[selectedOptionIndex];
     if (!option) return;
 
-    const key = `${selectedOptionIndex}:${option.legs
+    const focusLeg = focusedLegIndex !== null ? option.legs[focusedLegIndex] : null;
+    const legsForBounds = focusLeg ? [focusLeg] : option.legs;
+
+    const key = `${selectedOptionIndex}:${focusedLegIndex ?? 'all'}:${legsForBounds
       .map((leg) => `${leg.from.lat.toFixed(4)},${leg.from.lng.toFixed(4)}:${leg.to.lat.toFixed(4)},${leg.to.lng.toFixed(4)}`)
       .join('|')}`;
     if (lastTripViewKey.current === key) return;
@@ -120,7 +161,7 @@ export const MapLibreMap: React.FC = () => {
       }
     };
 
-    option.legs.forEach((leg) => {
+    legsForBounds.forEach((leg) => {
       addPoint(leg.from.lng, leg.from.lat);
       addPoint(leg.to.lng, leg.to.lat);
     });
@@ -136,7 +177,7 @@ export const MapLibreMap: React.FC = () => {
         bearing: -15,
       });
     }
-  }, [tripPlan, selectedOptionIndex]);
+  }, [tripPlan, selectedOptionIndex, focusedLegIndex]);
 
   const handleMapLoad = useCallback(() => {
     if (mapRef.current) {

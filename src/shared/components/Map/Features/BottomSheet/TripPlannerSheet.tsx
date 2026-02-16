@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { BiCurrentLocation, BiMap, BiLoaderAlt, BiWalk, BiArrowBack } from 'react-icons/bi';
+import { BiCurrentLocation, BiMap, BiLoaderAlt, BiWalk } from 'react-icons/bi';
 import { MdSwapVert } from 'react-icons/md';
 import { FaBus } from 'react-icons/fa';
 import { useTripPlannerStore } from '../../../../store/tripPlannerStore';
@@ -8,6 +8,34 @@ import { planTrip } from '../../../../api/trip';
 import { useMapStore } from '../../../../store/mapStore';
 import { useBottomSheet } from '../../../../../hooks/useBottomSheet';
 import { CloseButton } from '../../../ui/CloseButton';
+
+const ExpandableText: React.FC<{ text: string; maxChars?: number; className?: string }> = ({
+  text,
+  maxChars = 72,
+  className = '',
+}) => {
+  const [expanded, setExpanded] = useState(false);
+  const isLong = text.length > maxChars;
+  const visible = expanded || !isLong ? text : `${text.slice(0, maxChars).trimEnd()}...`;
+
+  return (
+    <span className={className}>
+      {visible}{' '}
+      {isLong && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            setExpanded((prev) => !prev);
+          }}
+          className="text-secondary/90 hover:text-secondary underline decoration-secondary/40"
+        >
+          {expanded ? 'menos' : 'mas'}
+        </button>
+      )}
+    </span>
+  );
+};
 
 export const TripPlannerSheet: React.FC = () => {
   const {
@@ -18,6 +46,7 @@ export const TripPlannerSheet: React.FC = () => {
     setDestination,
     setTripPlan,
     setSelectedOptionIndex,
+    setFocusedLegIndex,
     setIsSelectingOrigin,
     setIsSelectingDestination,
     swapLocations,
@@ -143,6 +172,7 @@ export const TripPlannerSheet: React.FC = () => {
       const plan = await planTrip({ origin, destination });
       setTripPlan(plan);
       setSelectedOptionIndex(plan.options.length > 0 ? 0 : null);
+      setFocusedLegIndex(null);
     } catch (error) {
       setPlanError('No se pudo planificar el viaje. Intenta de nuevo.');
       console.error('Error planning trip:', error);
@@ -154,7 +184,8 @@ export const TripPlannerSheet: React.FC = () => {
   useEffect(() => {
     setTripPlan(null);
     setSelectedOptionIndex(null);
-  }, [origin, destination, setTripPlan, setSelectedOptionIndex]);
+    setFocusedLegIndex(null);
+  }, [origin, destination, setTripPlan, setSelectedOptionIndex, setFocusedLegIndex]);
 
   // Si hay un plan, mostrar resultados
   if (tripPlan) {
@@ -166,6 +197,7 @@ export const TripPlannerSheet: React.FC = () => {
     setIsSelectingDestination(false);
     setTripPlan(null);
     setSelectedOptionIndex(null);
+    setFocusedLegIndex(null);
     closeContent();
   };
 
@@ -268,7 +300,7 @@ export const TripPlannerSheet: React.FC = () => {
                 }}
                 className="w-full px-3 py-2 text-left hover:bg-white/10 rounded-lg transition-colors"
               >
-                <div className="font-medium text-white text-sm">{place.name}</div>
+                <div className="font-medium text-white text-sm truncate" title={place.name}>{place.name}</div>
                 <div className="text-xs text-white/60">{place.type}</div>
               </button>
             ))}
@@ -295,7 +327,7 @@ export const TripPlannerSheet: React.FC = () => {
                 }}
                 className="w-full px-3 py-2 text-left hover:bg-white/10 rounded-lg transition-colors"
               >
-                <div className="font-medium text-white text-sm">{place.name}</div>
+                <div className="font-medium text-white text-sm truncate" title={place.name}>{place.name}</div>
                 <div className="text-xs text-white/60">{place.type}</div>
               </button>
             ))}
@@ -326,10 +358,10 @@ export const TripPlannerSheet: React.FC = () => {
                   }}
                   className="w-full px-3 py-2 text-left hover:bg-white/10 rounded-lg transition-colors"
                 >
-                  <div className="font-medium text-white text-sm">{place.name}</div>
-                  <div className="text-xs text-white/60">{place.type}</div>
-                </button>
-              ))}
+                <div className="font-medium text-white text-sm truncate" title={place.name}>{place.name}</div>
+                <div className="text-xs text-white/60">{place.type}</div>
+              </button>
+            ))}
             </div>
           )
         )}
@@ -361,32 +393,22 @@ export const TripPlannerSheet: React.FC = () => {
 
 // Componente para mostrar resultados
 const TripPlanResults: React.FC = () => {
-  const { tripPlan, setTripPlan, selectedOptionIndex, setSelectedOptionIndex } = useTripPlannerStore();
-  const { closeContent } = useBottomSheet();
+  const { tripPlan, setTripPlan, selectedOptionIndex, setSelectedOptionIndex, focusedLegIndex, setFocusedLegIndex } = useTripPlannerStore();
 
   const handleClose = () => {
     setTripPlan(null);
     setSelectedOptionIndex(null);
-    closeContent();
+    setFocusedLegIndex(null);
   };
 
   if (!tripPlan || tripPlan.options.length === 0) {
     return (
-      <div className="p-4">
+      <div className="p-4 space-y-3">
         <div className="flex items-center justify-between mb-4">
-          <button
-            onClick={() => {
-              setTripPlan(null);
-              setSelectedOptionIndex(null);
-            }}
-            className="flex items-center gap-2 text-secondary hover:text-secondary/80"
-          >
-            <BiArrowBack className="w-5 h-5" />
-            Volver
-          </button>
+          <h2 className="text-base font-semibold text-white">Opciones de viaje</h2>
           <CloseButton onClick={handleClose} />
         </div>
-        <p className="text-white/60 text-center py-8">No se encontraron rutas disponibles</p>
+        <p className="text-white/60 text-center py-6">No se encontraron rutas disponibles</p>
       </div>
     );
   }
@@ -414,51 +436,41 @@ const TripPlanResults: React.FC = () => {
 
   return (
     <div className="flex flex-col h-full min-h-0">
-      {/* Header fijo */}
       <div className="flex-shrink-0 p-4 border-b border-white/10 bg-primary/95 backdrop-blur">
-        <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
-          <button
-            onClick={() => {
-              setTripPlan(null);
-              setSelectedOptionIndex(null);
-            }}
-            className="justify-self-start flex items-center gap-2 text-secondary hover:text-secondary/80 font-medium"
-          >
-            <BiArrowBack className="w-5 h-5" />
-            Volver
-          </button>
-          <h2 className="text-base sm:text-lg font-semibold text-white justify-self-center">
-            Opciones de viaje
-          </h2>
-          <CloseButton onClick={handleClose} className="justify-self-end" />
+        <div className="flex items-center justify-between">
+          <h2 className="text-base sm:text-lg font-semibold text-white">Opciones de viaje</h2>
+          <CloseButton onClick={handleClose} />
         </div>
       </div>
 
       {/* Lista scrolleable */}
-      <div className="flex-1 min-h-0 overflow-y-auto px-4 pt-3 pb-6 space-y-3">
+      <div className="flex-1 min-h-0 overflow-y-auto px-4 pt-2 pb-4 space-y-2">
         {tripPlan.options.map((option, idx) => (
           <div 
             key={idx} 
             className={`relative group cursor-pointer transition-all ${
               selectedOptionIndex === idx ? 'ring-2 ring-secondary' : ''
             }`}
-            onClick={() => setSelectedOptionIndex(selectedOptionIndex === idx ? null : idx)}
+            onClick={() => {
+              setSelectedOptionIndex(selectedOptionIndex === idx ? null : idx);
+              setFocusedLegIndex(null);
+            }}
           >
             {/* Glow effect */}
-            <div className="absolute inset-0 bg-secondary/10 rounded-xl blur opacity-0 group-hover:opacity-100 transition-opacity" />
+            <div className="absolute inset-0 bg-secondary/10 rounded-lg blur opacity-0 group-hover:opacity-100 transition-opacity" />
             
             {/* Card */}
-            <div className="relative bg-white/5 border border-white/10 rounded-xl p-4 hover:bg-white/10 transition-colors">
+            <div className="relative bg-white/5 border border-white/10 rounded-lg p-3 hover:bg-white/10 transition-colors">
               {/* Header de la opción */}
-              <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-3">
                   <div className="flex items-center gap-2">
-                    <BiWalk className="w-5 h-5 text-white/60" />
-                    <span className="text-sm text-white/60">{formatDistance(option.total_walking_m)}</span>
+                    <BiWalk className="w-4 h-4 text-white/60" />
+                    <span className="text-xs text-white/60">{formatDistance(option.total_walking_m)}</span>
                   </div>
                   <div className="w-px h-4 bg-white/20" />
                   <div className="flex items-center gap-2">
-                    <span className="text-lg font-bold text-white">{formatDuration(option.estimated_time_m)}</span>
+                    <span className="text-base font-bold text-white">{formatDuration(option.estimated_time_m)}</span>
                   </div>
                 </div>
                 <span className={`px-2 py-1 rounded border text-xs font-medium ${getConfidenceBadge(option.confidence)}`}>
@@ -467,10 +479,23 @@ const TripPlanResults: React.FC = () => {
               </div>
 
               {/* Resumen de rutas */}
-              <div className="flex flex-wrap items-center gap-2 mb-3">
-                {option.legs.filter(leg => leg.type === 'bus').map((leg, legIdx) => (
-                  <div key={legIdx} className="flex items-center gap-1">
-                    <span className="px-2 py-1 bg-secondary/80 text-white text-xs font-bold rounded">
+              <div className="flex flex-wrap items-center gap-1.5 mb-1">
+                {option.legs
+                  .map((leg, legIdx) => ({ ...leg, legIdx }))
+                  .filter(leg => leg.type === 'bus')
+                  .map((leg) => (
+                  <button
+                    key={leg.legIdx}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedOptionIndex(idx);
+                      setFocusedLegIndex(leg.legIdx);
+                    }}
+                    className={`flex items-center gap-1 rounded-md transition-colors ${
+                      focusedLegIndex === leg.legIdx ? 'bg-white/10' : 'hover:bg-white/5'
+                    }`}
+                  >
+                    <span className="px-1.5 py-1 bg-secondary/80 text-white text-[11px] font-bold rounded">
                       {leg.route_name || leg.route_code}
                     </span>
                     {leg.direction && (
@@ -478,10 +503,23 @@ const TripPlanResults: React.FC = () => {
                         {leg.direction === 'IDA' ? 'I' : 'R'}
                       </span>
                     )}
-                  </div>
+                  </button>
                 ))}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setFocusedLegIndex(null);
+                  }}
+                  className={`text-[10px] px-1.5 py-1 rounded border transition-colors ${
+                    focusedLegIndex === null
+                      ? 'border-secondary/40 text-secondary bg-secondary/10'
+                      : 'border-white/15 text-white/50 hover:text-white'
+                  }`}
+                >
+                  Ver todo
+                </button>
                 {option.total_transfers > 0 && (
-                  <span className="text-xs text-white/60">
+                  <span className="text-[11px] text-white/60">
                     • {option.total_transfers} transbordo{option.total_transfers > 1 ? 's' : ''}
                   </span>
                 )}
@@ -489,7 +527,7 @@ const TripPlanResults: React.FC = () => {
 
               {/* Detalles expandibles */}
               {selectedOptionIndex === idx && (
-                <div className="mt-4 pt-4 border-t border-white/10 space-y-3 animate-in fade-in slide-in-from-top-2 duration-200">
+                <div className="mt-2 pt-2 border-t border-white/10 space-y-2 animate-in fade-in slide-in-from-top-2 duration-200">
                   {(() => {
                     let busCounter = 0;
                     let transferCounter = 0;
@@ -516,13 +554,22 @@ const TripPlanResults: React.FC = () => {
                               : 'Caminar';
 
                       return (
-                        <div key={legIdx} className="flex gap-3">
+                        <button
+                          key={legIdx}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setFocusedLegIndex(legIdx);
+                          }}
+                          className={`w-full flex gap-2 text-left rounded-lg p-1.5 transition-colors ${
+                            focusedLegIndex === legIdx ? 'bg-white/10 border border-secondary/30' : 'hover:bg-white/5'
+                          }`}
+                        >
                       {/* Icono */}
                           <div className="flex-shrink-0 relative">
                             <div className="absolute -top-1 -left-1 w-5 h-5 rounded-full bg-secondary text-primary text-[10px] font-bold flex items-center justify-center border border-white/30">
                               {legIdx + 1}
                             </div>
-                            <div className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center">
+                            <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center">
                               {leg.type === 'walk' ? (
                                 <BiWalk className="w-5 h-5 text-white/80" />
                               ) : (
@@ -533,10 +580,10 @@ const TripPlanResults: React.FC = () => {
 
                       {/* Contenido */}
                       <div className="flex-1 min-w-0">
-                        <div className="text-[10px] uppercase tracking-wide text-white/40 mb-1">
+                        <div className="text-[10px] uppercase tracking-wide text-white/40">
                           {label}
                         </div>
-                        <div className="flex items-center gap-2 mb-1">
+                        <div className="flex items-center gap-2">
                         {leg.type === 'bus' && leg.route_code && (
                           <span className="px-2 py-0.5 bg-secondary text-white text-xs font-bold rounded">
                             {leg.route_name || leg.route_code}
@@ -547,36 +594,49 @@ const TripPlanResults: React.FC = () => {
                             {leg.direction === 'IDA' ? 'Ida' : 'Regreso'}
                           </span>
                         )}
-                        <span className="font-medium text-white text-sm">
+                        <span className="font-medium text-white text-xs">
                           {leg.type === 'walk' ? 'Caminar' : leg.route_name || 'Bus'}
                         </span>
                       </div>
-                      <div className="text-xs text-white/60 mb-1">
+                      <div className="text-[11px] text-white/60">
                         {formatDistance(leg.distance_m)} • {formatDuration(leg.duration_m)}
                       </div>
                       {leg.type === 'bus' && (leg.from_stop || leg.to_stop) && (
-                        <div className="text-xs text-white/40">
-                          {leg.from_stop?.nombre ? `Sube: ${leg.from_stop.nombre}` : 'Sube en parada cercana'}
-                          {leg.to_stop?.nombre ? ` • Baja: ${leg.to_stop.nombre}` : ''}
+                        <div className="text-xs text-white/40 space-y-1">
+                          <div>
+                            <span className="text-white/50">Sube:</span>{' '}
+                            <ExpandableText
+                              text={leg.from_stop?.nombre || 'Parada cercana'}
+                              maxChars={58}
+                            />
+                          </div>
+                          {leg.to_stop?.nombre && (
+                            <div>
+                              <span className="text-white/50">Baja:</span>{' '}
+                              <ExpandableText
+                                text={leg.to_stop.nombre}
+                                maxChars={58}
+                              />
+                            </div>
+                          )}
                         </div>
                       )}
                       {leg.instructions && (
-                        <div className="text-xs text-white/40 leading-relaxed">
-                          {leg.instructions}
+                        <div className="text-[11px] text-white/40 leading-relaxed">
+                          <ExpandableText text={leg.instructions} maxChars={90} />
                         </div>
                       )}
                       </div>
-                    </div>
+                    </button>
                       );
                     });
                   })()}
                 </div>
               )}
 
-              {/* Indicador de expandible */}
-              <div className="mt-3 pt-3 border-t border-white/10 text-center">
-                <span className="text-xs text-white/40">
-                  {selectedOptionIndex === idx ? 'Click para ocultar detalles' : 'Click para ver detalles'}
+              <div className="mt-1 text-center">
+                <span className="text-[10px] text-white/35">
+                  {selectedOptionIndex === idx ? 'Detalle abierto' : 'Toca para ver detalle'}
                 </span>
               </div>
             </div>
