@@ -1,8 +1,6 @@
 import React, { lazy, Suspense } from 'react';
 import { Helmet } from "react-helmet";
 import { LayerModal } from '../index';
-import { useBottomSheetStore } from '../../store/bottomSheetStore';
-import { useBottomSheet } from '../../../hooks/useBottomSheet';
 import { BottomSheet } from '../Map/Features/BottomSheet';
 import { NearbyRoutesCTA } from '../Map/Features/NearbyRoutesCTA';
 import { useSearchStore } from '../../store/searchStore';
@@ -19,8 +17,6 @@ const MapLoader = () => (
 );
 
 export const MapLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { sheetState } = useBottomSheetStore();
-  const { closeContent } = useBottomSheet();
   const { showResults, inputValue, setShowResults } = useSearchStore();
 
   return (
@@ -72,15 +68,6 @@ export const MapLayout: React.FC<{ children: React.ReactNode }> = ({ children })
       <div className="fixed top-5 left-1/2 -translate-x-1/2 w-[90%] max-w-2xl" style={{ zIndex: 60 }}>
         {children}
       </div>
-
-      {/* Backdrop del drawer - debe estar sobre el search */}
-      {sheetState !== 'peek' && (
-        <div
-          className="sm:hidden fixed inset-0 bg-black/40"
-          style={{ zIndex: 65 }}
-          onClick={closeContent}
-        />
-      )}
 
       {/* Drawer - al mismo nivel que backdrop */}
       <BottomSheet />

@@ -8,6 +8,7 @@ import { useBottomSheet } from '../../../hooks/useBottomSheet';
 import { env } from '../../config/env';
 import { MapStyle } from '../../data/mapStyles';
 import { useThemeStore } from '../../store/themeStore';
+import { useBottomSheetStore } from '../../store/bottomSheetStore';
 
 import { MapControls, MapMarker, MapScale, MapStyleSelector, GeoLayer, GeoDistritos } from './Features';
 import { UserLocationMarker } from './Features/UserLocationMarker';
@@ -43,12 +44,16 @@ export const MapLibreMap: React.FC = () => {
   const { pin, setPin } = usePinStore();
   const { selectedRoute, nearbyRoutes, showNearbyOnMap, selectRoute, setHoveredRoute, setOverlappingRoutes } = useRutasStore();
   const { currentMapStyle, setMapStyle } = useThemeStore();
-  const { openNearbyRoutes } = useBottomSheet();
+  const { openNearbyRoutes, isOpen: isDrawerOpen } = useBottomSheet();
   const { selectedOptionIndex, tripPlan, focusedLegIndex } = useTripPlannerStore();
+  const { sheetState } = useBottomSheetStore();
   const { center, zoom } = config;
 
   const mapRef = useRef<MapRef>(null);
   const lastTripViewKey = useRef<string | null>(null);
+  const lastDrawerKeyRef = useRef<string>('');
+  const drawerAnchorCenterRef = useRef<LngLat | null>(null);
+  const drawerWasOpenRef = useRef(false);
 
   // Initialize map style from store
   const [mapStyle, setMapStyleState] = useState<string>(currentMapStyle.url);
@@ -96,6 +101,57 @@ export const MapLibreMap: React.FC = () => {
       }
     }
   }, [selectedRoute]);
+
+  useEffect(() => {
+    if (window.innerWidth >= 640 || !mapRef.current) return;
+
+    const key = `${isDrawerOpen ? 'open' : 'closed'}:${sheetState}`;
+    if (key === lastDrawerKeyRef.current) return;
+    lastDrawerKeyRef.current = key;
+
+    const map = mapRef.current.getMap();
+    if (!map) return;
+
+    const wasOpen = drawerWasOpenRef.current;
+    if (!wasOpen && isDrawerOpen) {
+      // Capturar centro base antes de desplazar foco por el drawer
+      drawerAnchorCenterRef.current = map.getCenter();
+    }
+
+    if (wasOpen && !isDrawerOpen) {
+      // Restaurar centro original al cerrar drawer
+      if (drawerAnchorCenterRef.current) {
+        map.easeTo({
+          center: drawerAnchorCenterRef.current,
+          duration: 220,
+          easing: (t) => 1 - Math.pow(1 - t, 2),
+          essential: true,
+        });
+      }
+      drawerWasOpenRef.current = false;
+      return;
+    }
+
+    drawerWasOpenRef.current = isDrawerOpen;
+    if (!isDrawerOpen) return;
+
+    let focusShift = 0;
+    if (sheetState === 'peek') focusShift = 60;
+    if (sheetState === 'half') focusShift = Math.round(window.innerHeight * 0.16);
+    if (sheetState === 'full') focusShift = Math.round(window.innerHeight * 0.26);
+
+    const anchorCenter = drawerAnchorCenterRef.current || map.getCenter();
+    const centerPoint = map.project(anchorCenter);
+    // El drawer aparece abajo: movemos el foco del mapa hacia abajo para conservar visibilidad inferior
+    const nextCenter = map.unproject([centerPoint.x, centerPoint.y + focusShift]);
+
+    map.easeTo({
+      center: nextCenter,
+      duration: 260,
+      easing: (t) => 1 - Math.pow(1 - t, 2),
+      essential: true,
+    });
+  }, [isDrawerOpen, sheetState]);
 
   // Focus on trip plan key points (origin/destination/transfers)
   useEffect(() => {
