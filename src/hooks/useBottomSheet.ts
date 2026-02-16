@@ -4,6 +4,7 @@ import { useRutasStore } from '../shared/store/rutasStore';
 import { useParadasStore } from '../shared/store/paradasStore';
 import { useMapStore } from '../shared/store/mapStore';
 import { useAnnotationStore } from '../shared/store/annotationStore';
+import { useTripPlannerStore } from '../shared/store/tripPlannerStore';
 import { env } from '../shared/config/env';
 
 type ContentType = 'route' | 'nearbyRoutes' | 'geoInfo' | 'annotations' | 'tripPlanner' | 'none';
@@ -85,6 +86,12 @@ export const useBottomSheet = () => {
   // Cerrar solo el contenido actual (inteligente)
   const closeContent = () => {
     switch (contentType) {
+      case 'tripPlanner':
+        useTripPlannerStore.getState().setIsSelectingOrigin(false);
+        useTripPlannerStore.getState().setIsSelectingDestination(false);
+        setSheetState('peek');
+        setActiveTab('info');
+        break;
       case 'route':
         // Solo cerrar el drawer, NO limpiar la ruta
         setSheetState('peek');
@@ -155,6 +162,9 @@ export const useBottomSheet = () => {
     clearNearbyRoutes();
     setSelectedInfo(null);
     
+    useTripPlannerStore.getState().setIsSelectingOrigin(false);
+    useTripPlannerStore.getState().setIsSelectingDestination(false);
+
     // Abrir el sheet
     setSheetState('half');
     setActiveTab('tripPlanner');

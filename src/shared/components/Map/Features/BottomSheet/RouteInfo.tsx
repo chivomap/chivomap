@@ -1,9 +1,10 @@
 import React, { useEffect, useMemo, useRef } from 'react';
-import { BiMap, BiRuler, BiRightArrowAlt, BiX, BiBus } from 'react-icons/bi';
+import { BiMap, BiRuler, BiRightArrowAlt, BiBus } from 'react-icons/bi';
 import { useRutasStore } from '../../../../store/rutasStore';
 import { useParadasStore } from '../../../../store/paradasStore';
 import { useMapStore } from '../../../../store/mapStore';
 import { RouteCodeBadge } from '../../../rutas/RouteCodeBadge';
+import { CloseButton } from '../../../ui/CloseButton';
 import type { RutaFeature } from '../../../../types/rutas';
 import * as turf from '@turf/turf';
 
@@ -95,13 +96,7 @@ export const RouteInfo: React.FC<RouteInfoProps> = React.memo(({ route }) => {
             </p>
           </div>
         </div>
-        <button
-          onClick={handleClose}
-          className="p-1.5 hover:bg-red-500/10 rounded-lg transition-colors text-red-400 hover:text-red-300"
-          title="Cerrar"
-        >
-          <BiX className="text-2xl" />
-        </button>
+        <CloseButton onClick={handleClose} />
       </div>
 
       <div className="grid grid-cols-2 gap-3">

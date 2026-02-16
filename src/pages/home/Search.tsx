@@ -107,6 +107,11 @@ export const Search: React.FC = () => {
         }
       }, 300);
     } else {
+      if (debounceTimer.current) {
+        clearTimeout(debounceTimer.current);
+        debounceTimer.current = undefined;
+      }
+      setIsSearchingPlaces(false);
       setPlaceResults([]);
     }
   };
@@ -209,10 +214,36 @@ export const Search: React.FC = () => {
   const searchResults = useMemo(() => {
     if (!inputValue) return { routes: [] };
 
-    const results = fuseInstance.search(inputValue);
-    
+    const normalizeRouteQuery = (value: string) =>
+      value
+        .toUpperCase()
+        .replace(/^RUTA\s+/i, '')
+        .replace(/[^A-Z0-9]/g, '');
+
+    const normalizedQuery = normalizeRouteQuery(inputValue);
+    const isRouteQuery = /\d/.test(inputValue) || /\bruta\b/i.test(inputValue);
+
+    const fuseResults = fuseInstance.search(inputValue).map(result => result.item as typeof allRoutes[0]);
+    const normalizedMatches = normalizedQuery.length >= 2
+      ? allRoutes.filter((route) => {
+        const normalizedCode = normalizeRouteQuery(route.codigo);
+        const normalizedName = normalizeRouteQuery(route.nombre);
+        return normalizedCode.includes(normalizedQuery) || normalizedName.includes(normalizedQuery);
+      })
+      : [];
+
+    const primary = isRouteQuery ? normalizedMatches : fuseResults;
+    const secondary = isRouteQuery ? fuseResults : normalizedMatches;
+
+    const combined = new Map<string, typeof allRoutes[0]>();
+    [...primary, ...secondary].forEach((route) => {
+      if (!combined.has(route.codigo)) {
+        combined.set(route.codigo, route);
+      }
+    });
+
     return {
-      routes: results.slice(0, 20).map(r => r.item as typeof allRoutes[0])
+      routes: Array.from(combined.values()).slice(0, 20)
     };
   }, [inputValue, fuseInstance, allRoutes]);
 
