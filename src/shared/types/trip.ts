@@ -1,3 +1,5 @@
+import type { Parada } from './paradas';
+
 export interface Location {
   lat: number;
   lng: number;
@@ -12,6 +14,9 @@ export interface TripLeg {
   duration_m: number;
   route_code?: string;
   route_name?: string;
+  direction?: 'IDA' | 'REGRESO';
+  from_stop?: Parada;
+  to_stop?: Parada;
   instructions?: string;
 }
 
@@ -26,7 +31,7 @@ export interface TripOption {
 export interface TripPlanRequest {
   origin: Location;
   destination: Location;
-  knownStops?: Location[];
+  max_walking_m?: number;
 }
 
 export interface TripPlanResponse {
@@ -34,8 +39,4 @@ export interface TripPlanResponse {
   destination: Location;
   options: TripOption[];
   has_stops: boolean;
-}
-
-export interface TripPlanResponse {
-  options: TripOption[];
 }
