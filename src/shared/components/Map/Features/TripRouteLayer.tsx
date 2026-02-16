@@ -173,19 +173,25 @@ export const TripRouteLayer: React.FC<{ selectedOptionIndex: number | null }> = 
 
       const uniqueCodes = Array.from(new Set(busLegs.map((leg) => leg.route_code as string)));
 
-      const details = await Promise.all(
+      const detailMap = new Map<string, RutaDetailResponse>();
+      await Promise.all(
         uniqueCodes.map(async (code) => {
           const cached = routeCacheRef.current.get(code);
-          if (cached) return [code, cached] as const;
-          const fetched = await getRouteByCode(code);
-          if (fetched) {
-            routeCacheRef.current.set(code, fetched);
+          if (cached) {
+            detailMap.set(code, cached);
+            return;
           }
-          return [code, fetched] as const;
+          try {
+            const fetched = await getRouteByCode(code);
+            if (fetched) {
+              routeCacheRef.current.set(code, fetched);
+              detailMap.set(code, fetched);
+            }
+          } catch {
+            // Ignorar error individual para no romper el render de otras rutas
+          }
         })
       );
-
-      const detailMap = new Map(details.filter(([, detail]) => detail) as Array<[string, RutaDetailResponse]>);
 
       const features = busLegs.map((leg) => {
         const detail = detailMap.get(leg.route_code as string);

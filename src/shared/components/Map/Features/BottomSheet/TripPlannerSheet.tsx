@@ -162,6 +162,8 @@ export const TripPlannerSheet: React.FC = () => {
   }
 
   const handleClose = () => {
+    setIsSelectingOrigin(false);
+    setIsSelectingDestination(false);
     setTripPlan(null);
     setSelectedOptionIndex(null);
     closeContent();
