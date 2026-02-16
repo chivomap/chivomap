@@ -44,10 +44,11 @@ export const MapLibreMap: React.FC = () => {
   const { selectedRoute, nearbyRoutes, showNearbyOnMap, selectRoute, setHoveredRoute, setOverlappingRoutes } = useRutasStore();
   const { currentMapStyle, setMapStyle } = useThemeStore();
   const { openNearbyRoutes } = useBottomSheet();
-  const { selectedOptionIndex } = useTripPlannerStore();
+  const { selectedOptionIndex, tripPlan } = useTripPlannerStore();
   const { center, zoom } = config;
 
   const mapRef = useRef<MapRef>(null);
+  const lastTripViewKey = useRef<string | null>(null);
 
   // Initialize map style from store
   const [mapStyle, setMapStyleState] = useState<string>(currentMapStyle.url);
@@ -95,6 +96,47 @@ export const MapLibreMap: React.FC = () => {
       }
     }
   }, [selectedRoute]);
+
+  // Focus on trip plan key points (origin/destination/transfers)
+  useEffect(() => {
+    if (!tripPlan || selectedOptionIndex === null || !mapRef.current) {
+      lastTripViewKey.current = null;
+      return;
+    }
+
+    const option = tripPlan.options[selectedOptionIndex];
+    if (!option) return;
+
+    const key = `${selectedOptionIndex}:${option.legs
+      .map((leg) => `${leg.from.lat.toFixed(4)},${leg.from.lng.toFixed(4)}:${leg.to.lat.toFixed(4)},${leg.to.lng.toFixed(4)}`)
+      .join('|')}`;
+    if (lastTripViewKey.current === key) return;
+    lastTripViewKey.current = key;
+
+    const bounds = new LngLatBounds();
+    const addPoint = (lng: number, lat: number) => {
+      if (Number.isFinite(lng) && Number.isFinite(lat)) {
+        bounds.extend([lng, lat]);
+      }
+    };
+
+    option.legs.forEach((leg) => {
+      addPoint(leg.from.lng, leg.from.lat);
+      addPoint(leg.to.lng, leg.to.lat);
+    });
+
+    if (!bounds.isEmpty()) {
+      const isMobile = window.innerWidth < 640;
+      mapRef.current.fitBounds(bounds, {
+        padding: isMobile
+          ? { top: 140, bottom: 180, left: 40, right: 40 }
+          : { top: 120, bottom: 120, left: 60, right: 60 },
+        duration: 1200,
+        pitch: isMobile ? 30 : 45,
+        bearing: -15,
+      });
+    }
+  }, [tripPlan, selectedOptionIndex]);
 
   const handleMapLoad = useCallback(() => {
     if (mapRef.current) {

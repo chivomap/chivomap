@@ -4,8 +4,125 @@ import type { FeatureCollection, Geometry } from 'geojson';
 import { useTripPlannerStore } from '../../../store/tripPlannerStore';
 import { getRouteByCode } from '../../../services/GetRutasData';
 import { getWalkRoute, type WalkRouteResponse } from '../../../api/routing';
-import type { RutaDetailResponse } from '../../../types/rutas';
+import type { RutaDetailResponse, RutaFeature } from '../../../types/rutas';
 import type { TripLeg } from '../../../types/trip';
+
+const pointDistanceMeters = (a: { lat: number; lng: number }, b: [number, number]) => {
+  const toRad = (deg: number) => (deg * Math.PI) / 180;
+  const R = 6371000;
+  const lat1 = toRad(a.lat);
+  const lat2 = toRad(b[1]);
+  const dLat = toRad(b[1] - a.lat);
+  const dLng = toRad(b[0] - a.lng);
+
+  const h =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng / 2) * Math.sin(dLng / 2);
+
+  return 2 * R * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h));
+};
+
+const getGeometryEndpoints = (geometry: Geometry): { start: [number, number]; end: [number, number] } | null => {
+  if (geometry.type === 'LineString') {
+    const coords = geometry.coordinates as [number, number][];
+    if (coords.length < 2) return null;
+    return { start: coords[0], end: coords[coords.length - 1] };
+  }
+
+  if (geometry.type === 'MultiLineString') {
+    const lines = geometry.coordinates as [number, number][][];
+    const nonEmpty = lines.filter((line) => line.length > 0);
+    if (nonEmpty.length === 0) return null;
+    const first = nonEmpty[0];
+    const last = nonEmpty[nonEmpty.length - 1];
+    return { start: first[0], end: last[last.length - 1] };
+  }
+
+  return null;
+};
+
+const flattenGeometryCoords = (geometry: Geometry): [number, number][] => {
+  if (geometry.type === 'LineString') {
+    return geometry.coordinates as [number, number][];
+  }
+  if (geometry.type === 'MultiLineString') {
+    const lines = geometry.coordinates as [number, number][][];
+    return lines.flat();
+  }
+  return [];
+};
+
+const closestCoordIndex = (coords: [number, number][], point: { lat: number; lng: number }) => {
+  let bestIdx = 0;
+  let bestDist = Number.MAX_SAFE_INTEGER;
+  coords.forEach((coord, idx) => {
+    const d = pointDistanceMeters(point, coord);
+    if (d < bestDist) {
+      bestDist = d;
+      bestIdx = idx;
+    }
+  });
+  return bestIdx;
+};
+
+const reverseGeometry = (geometry: Geometry): Geometry => {
+  if (geometry.type === 'LineString') {
+    return {
+      ...geometry,
+      coordinates: [...geometry.coordinates].reverse(),
+    } as Geometry;
+  }
+
+  if (geometry.type === 'MultiLineString') {
+    const lines = geometry.coordinates as [number, number][][];
+    return {
+      ...geometry,
+      coordinates: [...lines].reverse().map((line) => [...line].reverse()),
+    } as Geometry;
+  }
+
+  return geometry;
+};
+
+const orientedScore = (geometry: Geometry, leg: TripLeg) => {
+  const endpoints = getGeometryEndpoints(geometry);
+  if (!endpoints) return Number.MAX_SAFE_INTEGER;
+  return pointDistanceMeters(leg.from, endpoints.start) + pointDistanceMeters(leg.to, endpoints.end);
+};
+
+const orientGeometryToLeg = (geometry: Geometry, leg: TripLeg): Geometry => {
+  const coords = flattenGeometryCoords(geometry);
+  if (coords.length < 2) return geometry;
+
+  const fromIdx = closestCoordIndex(coords, leg.from);
+  const toIdx = closestCoordIndex(coords, leg.to);
+
+  if (fromIdx <= toIdx) return geometry;
+
+  return reverseGeometry(geometry);
+};
+
+const selectBestVariant = (routes: RutaFeature[], leg: TripLeg, direction: 'IDA' | 'REGRESO' | null) => {
+  let best = routes[0];
+  let bestScore = Number.MAX_SAFE_INTEGER;
+
+  routes.forEach((route) => {
+    const geometry = route.geometry as unknown as Geometry;
+    let score = Math.min(orientedScore(geometry, leg), orientedScore(reverseGeometry(geometry), leg));
+    if (direction) {
+      const sentido = route.properties.SENTIDO?.toUpperCase();
+      if (sentido && sentido !== direction) {
+        score += 250;
+      }
+    }
+    if (score < bestScore) {
+      bestScore = score;
+      best = route;
+    }
+  });
+
+  return best;
+};
 
 export const TripRouteLayer: React.FC<{ selectedOptionIndex: number | null }> = ({ selectedOptionIndex }) => {
   const { tripPlan, origin, destination } = useTripPlannerStore();
@@ -76,13 +193,13 @@ export const TripRouteLayer: React.FC<{ selectedOptionIndex: number | null }> = 
         const color = busPalette[leg._index % busPalette.length];
 
         if (detail && detail.routes.length > 0) {
-          const selected = direction
-            ? detail.routes.find((route) => normalizeDirection(route.properties.SENTIDO) === direction) || detail.routes[0]
-            : detail.routes[0];
+          const selected = selectBestVariant(detail.routes, leg, direction);
+          const rawGeometry = selected.geometry as unknown as Geometry;
+          const orientedGeometry = orientGeometryToLeg(rawGeometry, leg);
 
           return {
             type: 'Feature' as const,
-            geometry: selected.geometry as unknown as Geometry,
+            geometry: orientedGeometry,
             properties: {
               ...selected.properties,
               color,
@@ -245,6 +362,25 @@ export const TripRouteLayer: React.FC<{ selectedOptionIndex: number | null }> = 
               'line-join': 'round',
             }}
           />
+          <Layer
+            id="trip-bus-routes-arrows"
+            type="symbol"
+            layout={{
+              'symbol-placement': 'line',
+              'symbol-spacing': 100,
+              'icon-image': 'arrow',
+              'icon-size': 0.5,
+              'icon-rotate': 90,
+              'icon-rotation-alignment': 'map',
+              'icon-keep-upright': false,
+              'icon-allow-overlap': true,
+              'icon-ignore-placement': true,
+            }}
+            paint={{
+              'icon-opacity': 0.95,
+              'icon-color': '#0f172a',
+            }}
+          />
         </Source>
       )}
 
@@ -294,7 +430,9 @@ export const TripRouteLayer: React.FC<{ selectedOptionIndex: number | null }> = 
       {hasOption && transferStops.map((stop, idx) => (
         <Marker key={idx} longitude={stop.lng} latitude={stop.lat}>
           <div className="relative">
-            <div className="w-6 h-6 bg-yellow-500 rounded-full border-3 border-white shadow-lg" />
+            <div className="w-7 h-7 bg-yellow-500 rounded-full border-2 border-white shadow-lg flex items-center justify-center text-[11px] font-bold text-slate-900">
+              {idx + 1}
+            </div>
           </div>
         </Marker>
       ))}

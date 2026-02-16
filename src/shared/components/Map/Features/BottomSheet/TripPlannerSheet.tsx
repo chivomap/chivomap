@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { BiCurrentLocation, BiMap, BiLoaderAlt, BiWalk, BiArrowBack, BiX } from 'react-icons/bi';
+import { BiCurrentLocation, BiMap, BiLoaderAlt, BiWalk, BiArrowBack } from 'react-icons/bi';
 import { MdSwapVert } from 'react-icons/md';
 import { FaBus } from 'react-icons/fa';
 import { useTripPlannerStore } from '../../../../store/tripPlannerStore';
@@ -7,6 +7,7 @@ import { searchPlaces } from '../../../../api/search';
 import { planTrip } from '../../../../api/trip';
 import { useMapStore } from '../../../../store/mapStore';
 import { useBottomSheet } from '../../../../../hooks/useBottomSheet';
+import { CloseButton } from '../../../ui/CloseButton';
 
 export const TripPlannerSheet: React.FC = () => {
   const {
@@ -21,6 +22,7 @@ export const TripPlannerSheet: React.FC = () => {
     setIsSelectingDestination,
     swapLocations,
   } = useTripPlannerStore();
+  const { closeContent } = useBottomSheet();
 
   const { config } = useMapStore();
   const [originInput, setOriginInput] = useState('');
@@ -75,6 +77,11 @@ export const TripPlannerSheet: React.FC = () => {
     setOriginInput(value);
     if (value.length < 2) {
       setOriginSuggestions([]);
+      if (value.trim() === '') {
+        setOrigin(null);
+        setTripPlan(null);
+        setSelectedOptionIndex(null);
+      }
       return;
     }
     setIsSearchingOrigin(true);
@@ -92,6 +99,11 @@ export const TripPlannerSheet: React.FC = () => {
     setDestinationInput(value);
     if (value.length < 2) {
       setDestinationSuggestions([]);
+      if (value.trim() === '') {
+        setDestination(null);
+        setTripPlan(null);
+        setSelectedOptionIndex(null);
+      }
       return;
     }
     setIsSearchingDestination(true);
@@ -139,14 +151,31 @@ export const TripPlannerSheet: React.FC = () => {
     }
   };
 
+  useEffect(() => {
+    setTripPlan(null);
+    setSelectedOptionIndex(null);
+  }, [origin, destination, setTripPlan, setSelectedOptionIndex]);
+
   // Si hay un plan, mostrar resultados
   if (tripPlan) {
     return <TripPlanResults />;
   }
 
+  const handleClose = () => {
+    setTripPlan(null);
+    setSelectedOptionIndex(null);
+    closeContent();
+  };
+
   return (
     <div className="p-4 space-y-4">
-      <h2 className="text-lg font-semibold text-white mb-4">Planificar viaje</h2>
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-lg font-semibold text-white">Planificar viaje</h2>
+          <p className="text-xs text-white/50">Define origen y destino para ver opciones</p>
+        </div>
+        <CloseButton onClick={handleClose} />
+      </div>
 
       {/* Inputs compactos en un solo contenedor */}
       <div className="bg-white/5 border border-white/10 rounded-lg overflow-hidden">
@@ -353,13 +382,7 @@ const TripPlanResults: React.FC = () => {
             <BiArrowBack className="w-5 h-5" />
             Volver
           </button>
-          <button
-            onClick={handleClose}
-            className="w-9 h-9 rounded-lg border border-white/10 text-white/60 hover:text-white hover:border-white/20 transition-colors"
-            title="Cerrar"
-          >
-            <BiX className="w-5 h-5 mx-auto" />
-          </button>
+          <CloseButton onClick={handleClose} />
         </div>
         <p className="text-white/60 text-center py-8">No se encontraron rutas disponibles</p>
       </div>
@@ -405,13 +428,7 @@ const TripPlanResults: React.FC = () => {
           <h2 className="text-base sm:text-lg font-semibold text-white justify-self-center">
             Opciones de viaje
           </h2>
-          <button
-            onClick={handleClose}
-            className="justify-self-end w-9 h-9 rounded-lg border border-white/10 text-white/60 hover:text-white hover:border-white/20 transition-colors"
-            title="Cerrar"
-          >
-            <BiX className="w-5 h-5 mx-auto" />
-          </button>
+          <CloseButton onClick={handleClose} className="justify-self-end" />
         </div>
       </div>
 
@@ -448,11 +465,18 @@ const TripPlanResults: React.FC = () => {
               </div>
 
               {/* Resumen de rutas */}
-              <div className="flex items-center gap-2 mb-3">
+              <div className="flex flex-wrap items-center gap-2 mb-3">
                 {option.legs.filter(leg => leg.type === 'bus').map((leg, legIdx) => (
-                  <span key={legIdx} className="px-2 py-1 bg-secondary/80 text-white text-xs font-bold rounded">
-                    {leg.route_name || leg.route_code}
-                  </span>
+                  <div key={legIdx} className="flex items-center gap-1">
+                    <span className="px-2 py-1 bg-secondary/80 text-white text-xs font-bold rounded">
+                      {leg.route_name || leg.route_code}
+                    </span>
+                    {leg.direction && (
+                      <span className="px-1.5 py-0.5 bg-white/10 text-white/70 text-[10px] uppercase rounded">
+                        {leg.direction === 'IDA' ? 'I' : 'R'}
+                      </span>
+                    )}
+                  </div>
                 ))}
                 {option.total_transfers > 0 && (
                   <span className="text-xs text-white/60">
@@ -464,19 +488,52 @@ const TripPlanResults: React.FC = () => {
               {/* Detalles expandibles */}
               {selectedOptionIndex === idx && (
                 <div className="mt-4 pt-4 border-t border-white/10 space-y-3 animate-in fade-in slide-in-from-top-2 duration-200">
-                  {option.legs.map((leg, legIdx) => (
-                    <div key={legIdx} className="flex gap-3">
+                  {(() => {
+                    let busCounter = 0;
+                    let transferCounter = 0;
+
+                    return option.legs.map((leg, legIdx) => {
+                      const isBus = leg.type === 'bus';
+                      const isTransferWalk = leg.type === 'walk'
+                        && legIdx > 0
+                        && legIdx < option.legs.length - 1
+                        && option.legs[legIdx - 1].type === 'bus'
+                        && option.legs[legIdx + 1].type === 'bus';
+
+                      if (isBus) busCounter += 1;
+                      if (isTransferWalk) transferCounter += 1;
+
+                      const label = isBus
+                        ? `Bus ${busCounter}`
+                        : isTransferWalk
+                          ? `Transbordo ${transferCounter}`
+                          : legIdx === 0
+                            ? 'Salida'
+                            : legIdx === option.legs.length - 1
+                              ? 'Llegada'
+                              : 'Caminar';
+
+                      return (
+                        <div key={legIdx} className="flex gap-3">
                       {/* Icono */}
-                      <div className="flex-shrink-0 w-8 h-8 rounded-full bg-white/10 flex items-center justify-center">
-                        {leg.type === 'walk' ? (
-                          <BiWalk className="w-5 h-5 text-white/80" />
-                        ) : (
-                          <FaBus className="w-4 h-4 text-secondary" />
-                        )}
-                      </div>
+                          <div className="flex-shrink-0 relative">
+                            <div className="absolute -top-1 -left-1 w-5 h-5 rounded-full bg-secondary text-primary text-[10px] font-bold flex items-center justify-center border border-white/30">
+                              {legIdx + 1}
+                            </div>
+                            <div className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center">
+                              {leg.type === 'walk' ? (
+                                <BiWalk className="w-5 h-5 text-white/80" />
+                              ) : (
+                                <FaBus className="w-4 h-4 text-secondary" />
+                              )}
+                            </div>
+                          </div>
 
                       {/* Contenido */}
                       <div className="flex-1 min-w-0">
+                        <div className="text-[10px] uppercase tracking-wide text-white/40 mb-1">
+                          {label}
+                        </div>
                         <div className="flex items-center gap-2 mb-1">
                         {leg.type === 'bus' && leg.route_code && (
                           <span className="px-2 py-0.5 bg-secondary text-white text-xs font-bold rounded">
@@ -508,7 +565,9 @@ const TripPlanResults: React.FC = () => {
                       )}
                       </div>
                     </div>
-                  ))}
+                      );
+                    });
+                  })()}
                 </div>
               )}
 

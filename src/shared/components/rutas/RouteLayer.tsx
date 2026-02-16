@@ -5,6 +5,27 @@ import { useRutasStore } from '../../store/rutasStore';
 import { RUTA_COLORS, type SubtipoRuta } from '../../types/rutas';
 import type { LineLayerSpecification, SymbolLayerSpecification } from 'maplibre-gl';
 
+const getDirectionalGeometry = (geometry: Geometry, sentido?: string) => {
+    const direction = sentido?.toUpperCase();
+    if (direction !== 'REGRESO') return geometry;
+
+    if (geometry.type === 'LineString') {
+        return {
+            ...geometry,
+            coordinates: [...geometry.coordinates].reverse(),
+        } as Geometry;
+    }
+
+    if (geometry.type === 'MultiLineString') {
+        return {
+            ...geometry,
+            coordinates: geometry.coordinates.map((line) => [...line].reverse()),
+        } as Geometry;
+    }
+
+    return geometry;
+};
+
 export const RouteLayer = () => {
     const { selectedRoute, selectedRouteVariants } = useRutasStore();
 
@@ -30,7 +51,7 @@ export const RouteLayer = () => {
 
                 return {
                     type: 'Feature' as const,
-                    geometry: route.geometry as unknown as Geometry,
+                    geometry: getDirectionalGeometry(route.geometry as unknown as Geometry, route.properties.SENTIDO),
                     properties: {
                         ...route.properties,
                         color,
@@ -103,6 +124,7 @@ export const RouteLayer = () => {
             'icon-size': 0.5,
             'icon-rotate': 90,
             'icon-rotation-alignment': 'map',
+            'icon-keep-upright': false,
             'icon-allow-overlap': true,
             'icon-ignore-placement': true,
         },
