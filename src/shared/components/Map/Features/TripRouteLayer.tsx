@@ -263,8 +263,8 @@ export const TripRouteLayer: React.FC<{ selectedOptionIndex: number | null }> = 
     }
 
     const walkLegs = option.legs
-      .filter((leg) => leg.type === 'walk')
-      .map((leg, idx) => ({ ...leg, _index: idx }));
+      .map((leg, index) => ({ ...leg, _index: index }))
+      .filter((leg) => leg.type === 'walk');
 
     if (walkLegs.length === 0) {
       setWalkFeatures(null);
