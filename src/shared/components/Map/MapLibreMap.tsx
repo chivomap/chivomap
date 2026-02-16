@@ -52,8 +52,7 @@ export const MapLibreMap: React.FC = () => {
   const mapRef = useRef<MapRef>(null);
   const lastTripViewKey = useRef<string | null>(null);
   const lastDrawerKeyRef = useRef<string>('');
-  const drawerAnchorCenterRef = useRef<LngLat | null>(null);
-  const drawerWasOpenRef = useRef(false);
+  const drawerShiftRef = useRef(0);
 
   // Initialize map style from store
   const [mapStyle, setMapStyleState] = useState<string>(currentMapStyle.url);
@@ -112,42 +111,25 @@ export const MapLibreMap: React.FC = () => {
     const map = mapRef.current.getMap();
     if (!map) return;
 
-    const wasOpen = drawerWasOpenRef.current;
-    if (!wasOpen && isDrawerOpen) {
-      // Capturar centro base antes de desplazar foco por el drawer
-      drawerAnchorCenterRef.current = map.getCenter();
+    let targetShift = 0;
+    if (isDrawerOpen) {
+      if (sheetState === 'peek') targetShift = 60;
+      if (sheetState === 'half') targetShift = Math.round(window.innerHeight * 0.16);
+      if (sheetState === 'full') targetShift = Math.round(window.innerHeight * 0.26);
     }
 
-    if (wasOpen && !isDrawerOpen) {
-      // Restaurar centro original al cerrar drawer
-      if (drawerAnchorCenterRef.current) {
-        map.easeTo({
-          center: drawerAnchorCenterRef.current,
-          duration: 220,
-          easing: (t) => 1 - Math.pow(1 - t, 2),
-          essential: true,
-        });
-      }
-      drawerWasOpenRef.current = false;
-      return;
-    }
+    const deltaShift = targetShift - drawerShiftRef.current;
+    drawerShiftRef.current = targetShift;
 
-    drawerWasOpenRef.current = isDrawerOpen;
-    if (!isDrawerOpen) return;
+    if (deltaShift === 0) return;
 
-    let focusShift = 0;
-    if (sheetState === 'peek') focusShift = 60;
-    if (sheetState === 'half') focusShift = Math.round(window.innerHeight * 0.16);
-    if (sheetState === 'full') focusShift = Math.round(window.innerHeight * 0.26);
-
-    const anchorCenter = drawerAnchorCenterRef.current || map.getCenter();
-    const centerPoint = map.project(anchorCenter);
-    // El drawer aparece abajo: movemos el foco del mapa hacia abajo para conservar visibilidad inferior
-    const nextCenter = map.unproject([centerPoint.x, centerPoint.y + focusShift]);
+    const centerPoint = map.project(map.getCenter());
+    // Drawer abajo => shift positivo mueve foco hacia abajo.
+    const nextCenter = map.unproject([centerPoint.x, centerPoint.y + deltaShift]);
 
     map.easeTo({
       center: nextCenter,
-      duration: 260,
+      duration: 220,
       easing: (t) => 1 - Math.pow(1 - t, 2),
       essential: true,
     });

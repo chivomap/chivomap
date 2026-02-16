@@ -263,8 +263,9 @@ export const TripRouteLayer: React.FC<{ selectedOptionIndex: number | null }> = 
     }
 
     const walkLegs = option.legs
-      .map((leg, index) => ({ ...leg, _index: index }))
-      .filter((leg) => leg.type === 'walk');
+      .map((leg, legIndex) => ({ ...leg, _legIndex: legIndex }))
+      .filter((leg) => leg.type === 'walk')
+      .map((leg, walkIndex) => ({ ...leg, _walkIndex: walkIndex }));
 
     if (walkLegs.length === 0) {
       setWalkFeatures(null);
@@ -273,10 +274,11 @@ export const TripRouteLayer: React.FC<{ selectedOptionIndex: number | null }> = 
 
     const baseFeatures = walkLegs.map((leg) => ({
       type: 'Feature' as const,
-      id: `walk-${leg._index}`,
+      id: `walk-${leg._legIndex}`,
       properties: {
-        color: walkPalette[leg._index % walkPalette.length],
-        isActive: focusedLegIndex === null || focusedLegIndex === leg._index,
+        legIndex: leg._legIndex,
+        color: walkPalette[leg._walkIndex % walkPalette.length],
+        isActive: focusedLegIndex === null || focusedLegIndex === leg._legIndex,
       },
       geometry: {
         type: 'LineString' as const,
@@ -289,11 +291,11 @@ export const TripRouteLayer: React.FC<{ selectedOptionIndex: number | null }> = 
       features: baseFeatures,
     });
 
-    const updateFeature = (index: number, coordinates: [number, number][]) => {
+    const updateFeature = (legIndex: number, coordinates: [number, number][]) => {
       setWalkFeatures((prev) => {
         if (!prev) return prev;
-        const features = prev.features.map((feature, featureIndex) => {
-          if (featureIndex !== index) return feature;
+        const features = prev.features.map((feature) => {
+          if (feature.properties?.legIndex !== legIndex) return feature;
           return {
             ...feature,
             geometry: {
@@ -314,7 +316,7 @@ export const TripRouteLayer: React.FC<{ selectedOptionIndex: number | null }> = 
       const cached = walkCacheRef.current.get(cacheKey);
       if (cached) {
         if (!cancelled) {
-          updateFeature(leg._index, cached.geometry.coordinates);
+          updateFeature(leg._legIndex, cached.geometry.coordinates);
         }
         return;
       }
@@ -323,7 +325,7 @@ export const TripRouteLayer: React.FC<{ selectedOptionIndex: number | null }> = 
         const response = await getWalkRoute(leg.from, leg.to);
         walkCacheRef.current.set(cacheKey, response);
         if (!cancelled) {
-          updateFeature(leg._index, response.geometry.coordinates);
+          updateFeature(leg._legIndex, response.geometry.coordinates);
         }
       } catch (error) {
         // Mantener la linea recta en caso de error
