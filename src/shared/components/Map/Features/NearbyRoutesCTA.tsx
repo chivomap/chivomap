@@ -1,14 +1,20 @@
 import React, { useState } from 'react';
 import { BiBus, BiCurrentLocation } from 'react-icons/bi';
+import { MdDirections } from 'react-icons/md';
 import { useRutasStore } from '../../../store/rutasStore';
 import { useParadasStore } from '../../../store/paradasStore';
 import { useMapStore } from '../../../store/mapStore';
+import { useBottomSheet } from '../../../../hooks/useBottomSheet';
+import { useTripPlannerStore } from '../../../store/tripPlannerStore';
+import { env } from '../../../config/env';
 
 export const NearbyRoutesCTA: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const { fetchNearbyRoutes, nearbyRoutes, clearSelectedRoute } = useRutasStore();
   const { fetchNearbyParadas } = useParadasStore();
   const { updateConfig } = useMapStore();
+  const { openTripPlanner } = useBottomSheet();
+  const { reset } = useTripPlannerStore();
 
   const handleFindNearby = () => {
     const startTime = Date.now();
@@ -54,27 +60,47 @@ export const NearbyRoutesCTA: React.FC = () => {
     }
   };
 
-  // Hide if already showing nearby routes
-  if (nearbyRoutes && nearbyRoutes.length > 0) return null;
+  const showNearbyCTA = !(nearbyRoutes && nearbyRoutes.length > 0);
+  const showTripPlannerCTA = env.FEATURE_TRIP_PLANNER;
+
+  if (!showNearbyCTA && !showTripPlannerCTA) return null;
 
   return (
-    <button
-      onClick={handleFindNearby}
-      disabled={isLoading}
-      className="fixed bottom-4 left-1/2 -translate-x-1/2 bg-primary backdrop-blur-sm border border-secondary/30 text-secondary px-5 py-2.5 rounded-xl shadow-lg flex items-center gap-2 transition-all hover:border-secondary/50 disabled:opacity-50 disabled:cursor-not-allowed"
+    <div
+      className="fixed bottom-4 left-1/2 -translate-x-1/2 flex flex-col sm:flex-row gap-2"
       style={{ zIndex: 50 }}
     >
-      {isLoading ? (
-        <>
-          <BiCurrentLocation className="text-lg animate-spin" />
-          <span className="text-sm font-medium">Buscando...</span>
-        </>
-      ) : (
-        <>
-          <BiBus className="text-lg" />
-          <span className="text-sm font-medium">Buscar rutas cercanas</span>
-        </>
+      {showNearbyCTA && (
+        <button
+          onClick={handleFindNearby}
+          disabled={isLoading}
+          className="bg-primary backdrop-blur-sm border border-secondary/30 text-secondary px-5 py-2.5 rounded-xl shadow-lg flex items-center justify-center gap-2 transition-all hover:border-secondary/50 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {isLoading ? (
+            <>
+              <BiCurrentLocation className="text-lg animate-spin" />
+              <span className="text-sm font-medium">Buscando...</span>
+            </>
+          ) : (
+            <>
+              <BiBus className="text-lg" />
+              <span className="text-sm font-medium">Rutas cercanas</span>
+            </>
+          )}
+        </button>
       )}
-    </button>
+      {showTripPlannerCTA && (
+        <button
+          onClick={() => {
+            reset();
+            openTripPlanner();
+          }}
+          className="bg-secondary text-primary px-5 py-2.5 rounded-xl shadow-lg flex items-center justify-center gap-2 transition-all hover:bg-secondary/90"
+        >
+          <MdDirections className="text-lg" />
+          <span className="text-sm font-medium">Planificar viaje</span>
+        </button>
+      )}
+    </div>
   );
 };

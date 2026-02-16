@@ -3,6 +3,7 @@ import { Source, Layer, Marker } from 'react-map-gl/maplibre';
 import type { FeatureCollection, Geometry } from 'geojson';
 import { useTripPlannerStore } from '../../../store/tripPlannerStore';
 import { getRouteByCode } from '../../../services/GetRutasData';
+import { getWalkRoute, type WalkRouteResponse } from '../../../api/routing';
 import type { RutaDetailResponse } from '../../../types/rutas';
 import type { TripLeg } from '../../../types/trip';
 
@@ -11,7 +12,9 @@ export const TripRouteLayer: React.FC<{ selectedOptionIndex: number | null }> = 
 
   const option = tripPlan && selectedOptionIndex !== null ? tripPlan.options[selectedOptionIndex] : null;
   const [busFeatures, setBusFeatures] = useState<FeatureCollection | null>(null);
+  const [walkFeatures, setWalkFeatures] = useState<FeatureCollection | null>(null);
   const routeCacheRef = useRef<Map<string, RutaDetailResponse>>(new Map());
+  const walkCacheRef = useRef<Map<string, WalkRouteResponse>>(new Map());
 
   const normalizeDirection = (value?: string) => {
     if (!value) return null;
@@ -30,6 +33,8 @@ export const TripRouteLayer: React.FC<{ selectedOptionIndex: number | null }> = 
   };
 
   const busPalette = ['#10b981', '#f59e0b', '#3b82f6', '#ef4444'];
+
+  const walkPalette = ['#60a5fa', '#38bdf8'];
 
   useEffect(() => {
     let cancelled = false;
@@ -121,25 +126,85 @@ export const TripRouteLayer: React.FC<{ selectedOptionIndex: number | null }> = 
 
   const hasOption = Boolean(option);
 
-  // Crear GeoJSON para las rutas a pie
-  const walkRoutes = option
-    ? option.legs
-        .filter(leg => leg.type === 'walk')
-        .map((leg, idx) => ({
-          type: 'Feature' as const,
-          id: `walk-${idx}`,
-          properties: {},
-          geometry: {
-            type: 'LineString' as const,
-            coordinates: [[leg.from.lng, leg.from.lat], [leg.to.lng, leg.to.lat]]
-          }
-        }))
-    : [];
+  useEffect(() => {
+    let cancelled = false;
 
-  const walkFeatureCollection: FeatureCollection = {
-    type: 'FeatureCollection',
-    features: walkRoutes,
-  };
+    if (!option) {
+      setWalkFeatures(null);
+      return;
+    }
+
+    const walkLegs = option.legs
+      .filter((leg) => leg.type === 'walk')
+      .map((leg, idx) => ({ ...leg, _index: idx }));
+
+    if (walkLegs.length === 0) {
+      setWalkFeatures(null);
+      return;
+    }
+
+    const baseFeatures = walkLegs.map((leg) => ({
+      type: 'Feature' as const,
+      id: `walk-${leg._index}`,
+      properties: {
+        color: walkPalette[leg._index % walkPalette.length],
+      },
+      geometry: {
+        type: 'LineString' as const,
+        coordinates: [[leg.from.lng, leg.from.lat], [leg.to.lng, leg.to.lat]],
+      },
+    }));
+
+    setWalkFeatures({
+      type: 'FeatureCollection',
+      features: baseFeatures,
+    });
+
+    const updateFeature = (index: number, coordinates: [number, number][]) => {
+      setWalkFeatures((prev) => {
+        if (!prev) return prev;
+        const features = prev.features.map((feature, featureIndex) => {
+          if (featureIndex !== index) return feature;
+          return {
+            ...feature,
+            geometry: {
+              type: 'LineString',
+              coordinates,
+            },
+          } as typeof feature;
+        });
+        return {
+          type: 'FeatureCollection',
+          features,
+        };
+      });
+    };
+
+    walkLegs.forEach(async (leg) => {
+      const cacheKey = `${leg.from.lat},${leg.from.lng}:${leg.to.lat},${leg.to.lng}`;
+      const cached = walkCacheRef.current.get(cacheKey);
+      if (cached) {
+        if (!cancelled) {
+          updateFeature(leg._index, cached.geometry.coordinates);
+        }
+        return;
+      }
+
+      try {
+        const response = await getWalkRoute(leg.from, leg.to);
+        walkCacheRef.current.set(cacheKey, response);
+        if (!cancelled) {
+          updateFeature(leg._index, response.geometry.coordinates);
+        }
+      } catch (error) {
+        // Mantener la linea recta en caso de error
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [option]);
 
   // Paradas de transbordo
   const transferStops = option
@@ -184,13 +249,13 @@ export const TripRouteLayer: React.FC<{ selectedOptionIndex: number | null }> = 
       )}
 
       {/* Rutas a pie (punteadas) */}
-      {hasOption && walkRoutes.length > 0 && (
-        <Source id="trip-walk-routes" type="geojson" data={walkFeatureCollection}>
+      {hasOption && walkFeatures && walkFeatures.features.length > 0 && (
+        <Source id="trip-walk-routes" type="geojson" data={walkFeatures}>
           <Layer
             id="trip-walk-routes-line"
             type="line"
             paint={{
-              'line-color': '#60a5fa',
+              'line-color': ['get', 'color'],
               'line-width': 3,
               'line-opacity': 0.6,
               'line-dasharray': [2, 2]
