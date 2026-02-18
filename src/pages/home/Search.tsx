@@ -17,6 +17,13 @@ import { searchPlaces } from '../../shared/api/search';
 import type { SearchResult } from '../../shared/types/search';
 import { LngLat } from 'maplibre-gl';
 
+// Helper function moved outside to avoid recreation
+const normalizeRouteQuery = (value: string) =>
+  value
+    .toUpperCase()
+    .replace(/^RUTA\s+/i, '')
+    .replace(/[^A-Z0-9]/g, '');
+
 export const Search: React.FC = () => {
   const { inputValue, showResults, setInputValue, setShowResults } = useSearchStore();
   const { setSelectedResult, clearSelectedResult } = usePlaceSearchStore();
@@ -211,25 +218,28 @@ export const Search: React.FC = () => {
     });
   }, [allRoutes]);
 
+  // Pre-calculate normalized values for all routes
+  const normalizedRoutes = useMemo(() => {
+    return allRoutes.map(route => ({
+      original: route,
+      normalizedCode: normalizeRouteQuery(route.codigo),
+      normalizedName: normalizeRouteQuery(route.nombre)
+    }));
+  }, [allRoutes]);
+
   const searchResults = useMemo(() => {
     if (!inputValue) return { routes: [] };
-
-    const normalizeRouteQuery = (value: string) =>
-      value
-        .toUpperCase()
-        .replace(/^RUTA\s+/i, '')
-        .replace(/[^A-Z0-9]/g, '');
 
     const normalizedQuery = normalizeRouteQuery(inputValue);
     const isRouteQuery = /\d/.test(inputValue) || /\bruta\b/i.test(inputValue);
 
     const fuseResults = fuseInstance.search(inputValue).map(result => result.item as typeof allRoutes[0]);
     const normalizedMatches = normalizedQuery.length >= 2
-      ? allRoutes.filter((route) => {
-        const normalizedCode = normalizeRouteQuery(route.codigo);
-        const normalizedName = normalizeRouteQuery(route.nombre);
-        return normalizedCode.includes(normalizedQuery) || normalizedName.includes(normalizedQuery);
-      })
+      ? normalizedRoutes
+          .filter((item) => {
+            return item.normalizedCode.includes(normalizedQuery) || item.normalizedName.includes(normalizedQuery);
+          })
+          .map(item => item.original)
       : [];
 
     const primary = isRouteQuery ? normalizedMatches : fuseResults;
@@ -245,7 +255,7 @@ export const Search: React.FC = () => {
     return {
       routes: Array.from(combined.values()).slice(0, 20)
     };
-  }, [inputValue, fuseInstance, allRoutes]);
+  }, [inputValue, fuseInstance, normalizedRoutes]);
 
   const { routes: filteredRoutes } = searchResults;
 
