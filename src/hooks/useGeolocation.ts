@@ -84,20 +84,16 @@ export const useGeolocation = (options: UseGeolocationOptions = {}) => {
     // Only start watch if permission is granted
     if (state.permissionState !== 'granted') return;
 
-    console.log('🌐 Starting location watch...');
-
     const successCallback = (position: GeolocationPosition) => {
       const location = {
         lat: position.coords.latitude,
         lng: position.coords.longitude,
       };
-      console.log('📍 Location updated:', location);
       setState((prev) => ({ ...prev, location, error: null, loading: false }));
       onSuccess?.(position);
     };
 
     const errorCallback = (error: GeolocationPositionError) => {
-      console.error('❌ Location watch error:', error);
       setState((prev) => ({ ...prev, error, loading: false }));
       onError?.(error);
     };
@@ -146,14 +142,12 @@ export const useGeolocation = (options: UseGeolocationOptions = {}) => {
             lat: position.coords.latitude,
             lng: position.coords.longitude,
           };
-          console.log('✅ Location received:', location);
           setState((prev) => ({ ...prev, location, error: null, loading: false }));
           isRequestingRef.current = false;
           onSuccess?.(position);
           resolve(location);
         },
         (error) => {
-          console.error('❌ Location error:', error);
           setState((prev) => ({ ...prev, error, loading: false }));
           isRequestingRef.current = false;
           onError?.(error);

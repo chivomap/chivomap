@@ -185,8 +185,7 @@ export const TripPlannerSheet: React.FC = () => {
         
         hasAutoFilledOrigin.current = true;
       } catch (error) {
-        // Si no hay ubicación disponible, no hacer nada
-        console.log('User location not available for auto-fill');
+        // Si no hay ubicación disponible, no hacer nada (silencioso)
       }
     };
 
