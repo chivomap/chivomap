@@ -7,6 +7,7 @@ import { searchPlaces } from '../../../../api/search';
 import { planTrip } from '../../../../api/trip';
 import { useMapStore } from '../../../../store/mapStore';
 import { useBottomSheet } from '../../../../../hooks/useBottomSheet';
+import { useCurrentLocation } from '../../../../../hooks/useGeolocation';
 import { CloseButton } from '../../../ui/CloseButton';
 
 const ExpandableText: React.FC<{ text: string; maxChars?: number; className?: string }> = ({
@@ -64,6 +65,7 @@ export const TripPlannerSheet: React.FC = () => {
   const [nearbyPlaces, setNearbyPlaces] = useState<any[]>([]);
   const [planError, setPlanError] = useState<string | null>(null);
   const nearbyPlacesTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const { getLocation } = useCurrentLocation();
 
   useEffect(() => {
     if (origin) setOriginInput(origin.name || '');
@@ -146,20 +148,22 @@ export const TripPlannerSheet: React.FC = () => {
     }
   };
 
-  const getCurrentLocation = (isOrigin: boolean) => {
-    if ('geolocation' in navigator) {
-      navigator.geolocation.getCurrentPosition((position) => {
-        const location = {
-          lat: position.coords.latitude,
-          lng: position.coords.longitude,
-          name: 'Mi ubicación'
-        };
-        if (isOrigin) {
-          setOrigin(location);
-        } else {
-          setDestination(location);
-        }
-      });
+  const getCurrentLocation = async (isOrigin: boolean) => {
+    try {
+      const location = await getLocation();
+      const locationData = {
+        lat: location.lat,
+        lng: location.lng,
+        name: 'Mi ubicación'
+      };
+      if (isOrigin) {
+        setOrigin(locationData);
+      } else {
+        setDestination(locationData);
+      }
+    } catch (error) {
+      // Error ya manejado por el hook
+      console.error('Error getting location:', error);
     }
   };
 

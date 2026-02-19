@@ -5,16 +5,17 @@ import { MdDirectionsBus, MdContentCopy } from 'react-icons/md';
 import { usePinStore } from '../../../store/pinStore';
 import { useBottomSheet } from '../../../../hooks/useBottomSheet';
 import { useMapStore } from '../../../store/mapStore';
+import { useCurrentLocation } from '../../../../hooks/useGeolocation';
 
 export const MapControls: React.FC = () => {
   const { current: map } = useMap();
   const [isFullscreen, setIsFullscreen] = React.useState(false);
-  const [isLocating, setIsLocating] = React.useState(false);
   const [showPinMenu, setShowPinMenu] = React.useState(false);
   const menuRef = React.useRef<HTMLDivElement>(null);
   const { pin, clearPin } = usePinStore();
   const { openNearbyRoutes } = useBottomSheet();
   const { updateConfig, config } = useMapStore();
+  const { getLocation, loading: isLocating, error: locationError } = useCurrentLocation();
 
   const zoomIn = () => {
     if (map) map.zoomIn();
@@ -44,34 +45,19 @@ export const MapControls: React.FC = () => {
   }, []);
 
   // Centrar en ubicación del usuario
-  const centerOnUserLocation = () => {
-    if (navigator.geolocation) {
-      setIsLocating(true);
-      console.log('🎯 Location button clicked - requesting position...');
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          const { latitude, longitude } = position.coords;
-          console.log('✅ Location received:', { lat: latitude, lng: longitude });
-          updateConfig({ 
-            ...config, 
-            center: { lat: latitude, lng: longitude }, 
-            zoom: 15
-          });
-          setIsLocating(false);
-        },
-        (error) => {
-          console.error('❌ Location error:', error);
-          alert('No se pudo obtener tu ubicación. Verifica los permisos del navegador.');
-          setIsLocating(false);
-        },
-        {
-          enableHighAccuracy: false,
-          timeout: 5000,
-          maximumAge: 30000
-        }
-      );
-    } else {
-      alert('Tu navegador no soporta geolocalización');
+  const centerOnUserLocation = async () => {
+    try {
+      const location = await getLocation();
+      updateConfig({ 
+        ...config, 
+        center: { lat: location.lat, lng: location.lng }, 
+        zoom: 15
+      });
+    } catch (error) {
+      // Error ya manejado por el hook
+      if (locationError) {
+        alert(locationError);
+      }
     }
   };
 

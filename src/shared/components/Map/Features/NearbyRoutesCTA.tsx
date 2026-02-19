@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { BiBus, BiCurrentLocation } from 'react-icons/bi';
 import { MdDirections } from 'react-icons/md';
 import { useRutasStore } from '../../../store/rutasStore';
@@ -6,57 +6,48 @@ import { useParadasStore } from '../../../store/paradasStore';
 import { useMapStore } from '../../../store/mapStore';
 import { useBottomSheet } from '../../../../hooks/useBottomSheet';
 import { useTripPlannerStore } from '../../../store/tripPlannerStore';
+import { useCurrentLocation } from '../../../../hooks/useGeolocation';
 import { env } from '../../../config/env';
 
 export const NearbyRoutesCTA: React.FC = () => {
-  const [isLoading, setIsLoading] = useState(false);
   const { fetchNearbyRoutes, nearbyRoutes, clearSelectedRoute } = useRutasStore();
   const { fetchNearbyParadas } = useParadasStore();
   const { updateConfig } = useMapStore();
   const { openTripPlanner } = useBottomSheet();
   const { reset } = useTripPlannerStore();
+  const { getLocation, loading: isLoading, error: locationError } = useCurrentLocation();
 
-  const handleFindNearby = () => {
+  const handleFindNearby = async () => {
     const startTime = Date.now();
     console.log(`[${new Date().toISOString()}] 🚌 CTA "Buscar rutas cercanas" clicked`);
     
-    if ('geolocation' in navigator) {
-      setIsLoading(true);
-      clearSelectedRoute();
-      
+    clearSelectedRoute();
+    
+    try {
       console.log(`[${new Date().toISOString()}] 📡 Requesting geolocation...`);
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          const geoTime = Date.now();
-          const { latitude, longitude } = position.coords;
-          console.log(`[${new Date().toISOString()}] ✅ Location received (took ${geoTime - startTime}ms):`, { lat: latitude, lng: longitude });
-          
-          console.log(`[${new Date().toISOString()}] 🗺️ Updating map center...`);
-          updateConfig({ center: { lat: latitude, lng: longitude }, zoom: 14 });
-          const mapTime = Date.now();
-          console.log(`[${new Date().toISOString()}] ✅ Map updated (took ${mapTime - geoTime}ms)`);
-          
-          console.log(`[${new Date().toISOString()}] 🔍 Fetching routes and paradas in parallel...`);
-          Promise.all([
-            fetchNearbyRoutes(latitude, longitude), // Sin radio = búsqueda automática
-            fetchNearbyParadas(latitude, longitude) // Sin radio = búsqueda automática
-          ]).finally(() => {
-            const totalTime = Date.now();
-            console.log(`[${new Date().toISOString()}] ⏱️ Total time: ${totalTime - startTime}ms`);
-            setIsLoading(false);
-          });
-        },
-        (error) => {
-          console.error(`[${new Date().toISOString()}] ❌ Location error (took ${Date.now() - startTime}ms):`, error);
-          setIsLoading(false);
-          alert('No se pudo obtener tu ubicación. Verifica los permisos.');
-        },
-        {
-          enableHighAccuracy: false,
-          timeout: 5000,  // Reducido de 10s a 5s
-          maximumAge: 30000  // Acepta ubicación de hasta 30s
-        }
-      );
+      const location = await getLocation();
+      
+      const geoTime = Date.now();
+      console.log(`[${new Date().toISOString()}] ✅ Location received (took ${geoTime - startTime}ms):`, location);
+      
+      console.log(`[${new Date().toISOString()}] 🗺️ Updating map center...`);
+      updateConfig({ center: { lat: location.lat, lng: location.lng }, zoom: 14 });
+      const mapTime = Date.now();
+      console.log(`[${new Date().toISOString()}] ✅ Map updated (took ${mapTime - geoTime}ms)`);
+      
+      console.log(`[${new Date().toISOString()}] 🔍 Fetching routes and paradas in parallel...`);
+      await Promise.all([
+        fetchNearbyRoutes(location.lat, location.lng),
+        fetchNearbyParadas(location.lat, location.lng)
+      ]);
+      
+      const totalTime = Date.now();
+      console.log(`[${new Date().toISOString()}] ⏱️ Total time: ${totalTime - startTime}ms`);
+    } catch (error) {
+      console.error(`[${new Date().toISOString()}] ❌ Error (took ${Date.now() - startTime}ms):`, error);
+      if (locationError) {
+        alert(locationError);
+      }
     }
   };
 
