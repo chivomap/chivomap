@@ -525,8 +525,8 @@ export const MapLibreMap: React.FC = () => {
           }
         }}
         maxBounds={[
-          [-91.00994252677712, 11.214449814812207], // Southwest
-          [-85.6233130419287, 17.838768214869866]   // Northeast
+          [-92.5, 10.5], // Southwest - Ampliado
+          [-84.5, 18.5]  // Northeast - Ampliado
         ]}
         interactiveLayerIds={interactiveLayers}
         attributionControl={false}

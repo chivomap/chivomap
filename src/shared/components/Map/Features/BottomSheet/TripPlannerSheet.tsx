@@ -3,7 +3,7 @@ import { BiCurrentLocation, BiMap, BiLoaderAlt, BiWalk } from 'react-icons/bi';
 import { MdSwapVert } from 'react-icons/md';
 import { FaBus } from 'react-icons/fa';
 import { useTripPlannerStore } from '../../../../store/tripPlannerStore';
-import { searchPlaces } from '../../../../api/search';
+import { searchPlaces, reverseGeocode } from '../../../../api/search';
 import { planTrip } from '../../../../api/trip';
 import { useMapStore } from '../../../../store/mapStore';
 import { useBottomSheet } from '../../../../../hooks/useBottomSheet';
@@ -66,6 +66,111 @@ export const TripPlannerSheet: React.FC = () => {
   const [planError, setPlanError] = useState<string | null>(null);
   const nearbyPlacesTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { getLocation } = useCurrentLocation();
+  const hasAutoFilledOrigin = useRef(false);
+  const { updateConfig } = useMapStore();
+
+  // Zoom automático cuando se selecciona origen o destino
+  useEffect(() => {
+    if (!origin && !destination) return;
+
+    // Si solo hay origen, hacer zoom a él
+    if (origin && !destination) {
+      updateConfig({
+        center: { lat: origin.lat, lng: origin.lng },
+        zoom: 15
+      });
+      return;
+    }
+
+    // Si hay origen y destino, mostrar ambos
+    if (origin && destination) {
+      // Calcular bounds para mostrar ambos puntos
+      const minLat = Math.min(origin.lat, destination.lat);
+      const maxLat = Math.max(origin.lat, destination.lat);
+      const minLng = Math.min(origin.lng, destination.lng);
+      const maxLng = Math.max(origin.lng, destination.lng);
+
+      // Calcular centro
+      const centerLat = (minLat + maxLat) / 2;
+      const centerLng = (minLng + maxLng) / 2;
+
+      // Calcular zoom apropiado basado en la distancia
+      const latDiff = maxLat - minLat;
+      const lngDiff = maxLng - minLng;
+      const maxDiff = Math.max(latDiff, lngDiff);
+
+      // Zoom inversamente proporcional a la distancia
+      let zoom = 15;
+      if (maxDiff > 0.5) zoom = 10;
+      else if (maxDiff > 0.2) zoom = 11;
+      else if (maxDiff > 0.1) zoom = 12;
+      else if (maxDiff > 0.05) zoom = 13;
+      else if (maxDiff > 0.02) zoom = 14;
+
+      updateConfig({
+        center: { lat: centerLat, lng: centerLng },
+        zoom
+      });
+    }
+  }, [origin, destination, updateConfig]);
+
+  // Auto-llenar origen con ubicación del usuario al abrir
+  useEffect(() => {
+    if (hasAutoFilledOrigin.current || origin) return;
+
+    const autoFillOrigin = async () => {
+      try {
+        const location = await getLocation();
+        
+        // Intentar reverse geocoding para obtener dirección legible
+        try {
+          const geocodeResult = await reverseGeocode(location.lat, location.lng);
+          if (geocodeResult.results && geocodeResult.results.length > 0) {
+            const place = geocodeResult.results[0];
+            // Usar display_name si está disponible, sino construir desde address
+            let locationName = place.display_name || place.name;
+            
+            if (!locationName && place.address) {
+              const parts = [
+                place.address.street,
+                place.address.city,
+                place.address.state
+              ].filter(Boolean);
+              locationName = parts.length > 0 ? parts.join(', ') : 'Mi ubicación';
+            }
+            
+            setOrigin({
+              lat: location.lat,
+              lng: location.lng,
+              name: locationName || 'Mi ubicación'
+            });
+          } else {
+            // Fallback a coordenadas
+            setOrigin({
+              lat: location.lat,
+              lng: location.lng,
+              name: 'Mi ubicación'
+            });
+          }
+        } catch (geocodeError) {
+          console.warn('Reverse geocoding failed, using coordinates:', geocodeError);
+          // Fallback a coordenadas
+          setOrigin({
+            lat: location.lat,
+            lng: location.lng,
+            name: 'Mi ubicación'
+          });
+        }
+        
+        hasAutoFilledOrigin.current = true;
+      } catch (error) {
+        // Si no hay ubicación disponible, no hacer nada
+        console.log('User location not available for auto-fill');
+      }
+    };
+
+    autoFillOrigin();
+  }, [origin, getLocation, setOrigin]);
 
   useEffect(() => {
     if (origin) setOriginInput(origin.name || '');
@@ -151,11 +256,35 @@ export const TripPlannerSheet: React.FC = () => {
   const getCurrentLocation = async (isOrigin: boolean) => {
     try {
       const location = await getLocation();
+      
+      // Intentar reverse geocoding para obtener dirección legible
+      let locationName = 'Mi ubicación';
+      try {
+        const geocodeResult = await reverseGeocode(location.lat, location.lng);
+        if (geocodeResult.results && geocodeResult.results.length > 0) {
+          const place = geocodeResult.results[0];
+          // Usar display_name si está disponible, sino construir desde address
+          locationName = place.display_name || place.name;
+          
+          if (!locationName && place.address) {
+            const parts = [
+              place.address.street,
+              place.address.city,
+              place.address.state
+            ].filter(Boolean);
+            locationName = parts.length > 0 ? parts.join(', ') : 'Mi ubicación';
+          }
+        }
+      } catch (geocodeError) {
+        console.warn('Reverse geocoding failed:', geocodeError);
+      }
+      
       const locationData = {
         lat: location.lat,
         lng: location.lng,
-        name: 'Mi ubicación'
+        name: locationName || 'Mi ubicación'
       };
+      
       if (isOrigin) {
         setOrigin(locationData);
       } else {
