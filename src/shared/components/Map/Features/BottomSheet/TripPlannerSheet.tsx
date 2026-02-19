@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { BiCurrentLocation, BiMap, BiLoaderAlt, BiWalk } from 'react-icons/bi';
 import { MdSwapVert } from 'react-icons/md';
 import { FaBus } from 'react-icons/fa';
@@ -8,6 +8,7 @@ import { planTrip } from '../../../../api/trip';
 import { useMapStore } from '../../../../store/mapStore';
 import { useBottomSheet } from '../../../../../hooks/useBottomSheet';
 import { useCurrentLocation } from '../../../../../hooks/useGeolocation';
+import { useMapFocus } from '../../../../../hooks/useMapFocus';
 import { CloseButton } from '../../../ui/CloseButton';
 
 const ExpandableText: React.FC<{ text: string; maxChars?: number; className?: string }> = ({
@@ -67,39 +68,35 @@ export const TripPlannerSheet: React.FC = () => {
   const nearbyPlacesTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { getLocation } = useCurrentLocation();
   const hasAutoFilledOrigin = useRef(false);
-  const { updateConfig } = useMapStore();
+  const prevOriginDestRef = useRef<string>('');
+  const { focusPoint, focusPoints } = useMapFocus();
 
-  // Zoom automático cuando se selecciona origen o destino
-  useEffect(() => {
-    if (!origin && !destination) return;
+  // Calcular viewport óptimo basado en origen/destino
+  const optimalViewport = useMemo(() => {
+    if (!origin && !destination) return null;
 
     // Si solo hay origen, hacer zoom a él
     if (origin && !destination) {
-      updateConfig({
+      return {
         center: { lat: origin.lat, lng: origin.lng },
         zoom: 15
-      });
-      return;
+      };
     }
 
     // Si hay origen y destino, mostrar ambos
     if (origin && destination) {
-      // Calcular bounds para mostrar ambos puntos
       const minLat = Math.min(origin.lat, destination.lat);
       const maxLat = Math.max(origin.lat, destination.lat);
       const minLng = Math.min(origin.lng, destination.lng);
       const maxLng = Math.max(origin.lng, destination.lng);
 
-      // Calcular centro
       const centerLat = (minLat + maxLat) / 2;
       const centerLng = (minLng + maxLng) / 2;
 
-      // Calcular zoom apropiado basado en la distancia
       const latDiff = maxLat - minLat;
       const lngDiff = maxLng - minLng;
       const maxDiff = Math.max(latDiff, lngDiff);
 
-      // Zoom inversamente proporcional a la distancia
       let zoom = 15;
       if (maxDiff > 0.5) zoom = 10;
       else if (maxDiff > 0.2) zoom = 11;
@@ -107,12 +104,36 @@ export const TripPlannerSheet: React.FC = () => {
       else if (maxDiff > 0.05) zoom = 13;
       else if (maxDiff > 0.02) zoom = 14;
 
-      updateConfig({
+      return {
         center: { lat: centerLat, lng: centerLng },
         zoom
-      });
+      };
     }
-  }, [origin, destination, updateConfig]);
+
+    return null;
+  }, [origin, destination]);
+
+  // Aplicar viewport cuando cambia
+  useEffect(() => {
+    if (!optimalViewport) return;
+
+    // Crear key único para detectar cambios
+    const currentKey = `${origin?.lat},${origin?.lng}-${destination?.lat},${destination?.lng}`;
+    if (currentKey === prevOriginDestRef.current) return;
+    
+    prevOriginDestRef.current = currentKey;
+    
+    // Si solo hay origen, enfocar punto
+    if (origin && !destination) {
+      focusPoint(origin, { zoom: optimalViewport.zoom });
+      return;
+    }
+
+    // Si hay origen y destino, enfocar ambos puntos
+    if (origin && destination) {
+      focusPoints([origin, destination], { maxZoom: optimalViewport.zoom });
+    }
+  }, [optimalViewport, origin, destination, focusPoint, focusPoints]);
 
   // Auto-llenar origen con ubicación del usuario al abrir
   useEffect(() => {

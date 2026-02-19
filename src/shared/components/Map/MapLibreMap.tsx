@@ -179,6 +179,55 @@ export const MapLibreMap: React.FC = () => {
     }
   }, [tripPlan, selectedOptionIndex, focusedLegIndex]);
 
+  // Listener para enfocar un solo punto
+  useEffect(() => {
+    const handleFocusPoint = (event: CustomEvent) => {
+      if (!mapRef.current) return;
+
+      const { point, zoom, duration, offset } = event.detail;
+      const map = mapRef.current.getMap();
+      
+      map.easeTo({
+        center: [point.lng, point.lat],
+        zoom,
+        duration,
+        offset,
+      });
+    };
+
+    window.addEventListener('map-focus-point', handleFocusPoint as EventListener);
+    return () => {
+      window.removeEventListener('map-focus-point', handleFocusPoint as EventListener);
+    };
+  }, []);
+
+  // Listener para enfocar múltiples puntos (fitBounds)
+  useEffect(() => {
+    const handleFocusPoints = (event: CustomEvent) => {
+      if (!mapRef.current) return;
+
+      const { points, padding, duration, maxZoom } = event.detail;
+      
+      if (!points || points.length === 0) return;
+
+      const bounds = new LngLatBounds();
+      points.forEach((point: { lat: number; lng: number }) => {
+        bounds.extend([point.lng, point.lat]);
+      });
+
+      mapRef.current.fitBounds(bounds, {
+        padding,
+        duration,
+        maxZoom,
+      });
+    };
+
+    window.addEventListener('map-focus-points', handleFocusPoints as EventListener);
+    return () => {
+      window.removeEventListener('map-focus-points', handleFocusPoints as EventListener);
+    };
+  }, []);
+
   const handleMapLoad = useCallback(() => {
     if (mapRef.current) {
       const map = mapRef.current.getMap();
