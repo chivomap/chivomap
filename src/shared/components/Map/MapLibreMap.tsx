@@ -232,19 +232,28 @@ export const MapLibreMap: React.FC = () => {
     if (mapRef.current) {
       const map = mapRef.current.getMap();
       
-      // Crear ícono de flecha SVG
+      // Crear ícono de flecha SVG más notable
       const arrowSvg = `
-        <svg width="24" height="24" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-          <path d="M12 2 L12 18 M12 18 L6 12 M12 18 L18 12" 
-                stroke="white" 
-                stroke-width="3" 
+        <svg width="32" height="32" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
+          <!-- Sombra/outline para mejor visibilidad -->
+          <path d="M16 4 L16 24 M16 24 L9 17 M16 24 L23 17" 
+                stroke="#000000" 
+                stroke-width="5" 
+                fill="none" 
+                stroke-linecap="round" 
+                stroke-linejoin="round"
+                opacity="0.3"/>
+          <!-- Flecha principal -->
+          <path d="M16 4 L16 24 M16 24 L9 17 M16 24 L23 17" 
+                stroke="#FFFFFF" 
+                stroke-width="3.5" 
                 fill="none" 
                 stroke-linecap="round" 
                 stroke-linejoin="round"/>
         </svg>
       `;
       
-      const img = new Image(24, 24);
+      const img = new Image(32, 32);
       img.onload = () => {
         if (!map.hasImage('arrow')) {
           map.addImage('arrow', img);

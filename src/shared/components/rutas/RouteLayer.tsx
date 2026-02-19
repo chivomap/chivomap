@@ -119,9 +119,9 @@ export const RouteLayer = () => {
         filter: ['==', ['get', 'isActive'], true],
         layout: {
             'symbol-placement': 'line',
-            'symbol-spacing': 100,
+            'symbol-spacing': 80,        // Más frecuentes (antes: 100)
             'icon-image': 'arrow',
-            'icon-size': 0.5,
+            'icon-size': 0.6,            // Más grandes (antes: 0.5)
             'icon-rotate': 90,
             'icon-rotation-alignment': 'map',
             'icon-keep-upright': false,
@@ -129,7 +129,7 @@ export const RouteLayer = () => {
             'icon-ignore-placement': true,
         },
         paint: {
-            'icon-opacity': 0.8,
+            'icon-opacity': 0.9,         // Más opacas (antes: 0.8)
         },
     };
 
