@@ -102,67 +102,106 @@ export const NearbyRoutesCTA: React.FC = () => {
     }
   };
 
-  const showNearbyCTA = !pin && !(nearbyRoutes && nearbyRoutes.length > 0);
-  const showTripPlannerCTA = env.FEATURE_TRIP_PLANNER; // Siempre disponible
-  const showGetDirectionsCTA = pin && env.FEATURE_TRIP_PLANNER;
-  // Fallback: mostrar nearby CTA si trip planner está deshabilitado y hay pin
-  const showNearbyFallback = pin && !env.FEATURE_TRIP_PLANNER;
+  const showNearby = (!pin || !env.FEATURE_TRIP_PLANNER) && !(nearbyRoutes?.length > 0);
+  const showGetDirections = pin && env.FEATURE_TRIP_PLANNER;
+  const showTripPlanner = env.FEATURE_TRIP_PLANNER;
 
-  if (!showNearbyCTA && !showTripPlannerCTA && !showGetDirectionsCTA && !showNearbyFallback) return null;
+  if (!showNearby && !showGetDirections && !showTripPlanner) return null;
+
+  // Determinar botón primario según contexto
+  const primaryAction = showGetDirections ? 'directions' : showNearby ? 'nearby' : 'planner';
+  
+  // Contar botones secundarios
+  const secondaryCount = [
+    primaryAction !== 'nearby' && showNearby,
+    primaryAction !== 'planner' && showTripPlanner
+  ].filter(Boolean).length;
 
   return (
     <div
-      className="fixed bottom-4 left-1/2 -translate-x-1/2 flex flex-col sm:flex-row gap-2"
+      className="fixed bottom-4 left-4 right-4 sm:left-1/2 sm:right-auto sm:-translate-x-1/2 flex gap-2"
       style={{ zIndex: 50 }}
     >
-      {showGetDirectionsCTA && (
+      {/* Botón primario - flex-1 para ocupar espacio disponible */}
+      {primaryAction === 'directions' && (
         <button
           onClick={handleGetDirections}
           disabled={isLoading}
-          className="bg-secondary text-primary px-5 py-2.5 rounded-xl shadow-lg flex items-center justify-center gap-2 transition-all hover:bg-secondary/90 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="flex-1 sm:flex-none bg-secondary text-primary px-5 py-3 sm:py-2.5 rounded-xl shadow-lg flex items-center justify-center gap-2 transition-all hover:bg-secondary/90 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {isLoading ? (
             <>
-              <BiCurrentLocation className="text-lg animate-spin" />
-              <span className="text-sm font-medium">Obteniendo ubicación...</span>
+              <BiCurrentLocation className="text-xl sm:text-lg animate-spin" />
+              <span className="text-base sm:text-sm font-medium">Ubicando...</span>
             </>
           ) : (
             <>
-              <BiDirections className="text-lg" />
-              <span className="text-sm font-medium">Cómo llegar</span>
+              <BiDirections className="text-xl sm:text-lg" />
+              <span className="text-base sm:text-sm font-medium">Cómo llegar</span>
             </>
           )}
         </button>
       )}
-      {(showNearbyCTA || showNearbyFallback) && (
+      
+      {primaryAction === 'nearby' && (
         <button
           onClick={handleFindNearby}
           disabled={isLoading}
-          className="bg-primary backdrop-blur-sm border border-secondary/30 text-secondary px-5 py-2.5 rounded-xl shadow-lg flex items-center justify-center gap-2 transition-all hover:border-secondary/50 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="flex-1 sm:flex-none bg-secondary text-primary px-5 py-3 sm:py-2.5 rounded-xl shadow-lg flex items-center justify-center gap-2 transition-all hover:bg-secondary/90 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {isLoading ? (
             <>
-              <BiCurrentLocation className="text-lg animate-spin" />
-              <span className="text-sm font-medium">Buscando...</span>
+              <BiCurrentLocation className="text-xl sm:text-lg animate-spin" />
+              <span className="text-base sm:text-sm font-medium">Buscando...</span>
             </>
           ) : (
             <>
-              <BiBus className="text-lg" />
-              <span className="text-sm font-medium">Rutas cercanas</span>
+              <BiBus className="text-xl sm:text-lg" />
+              <span className="text-base sm:text-sm font-medium">Rutas cercanas</span>
             </>
           )}
         </button>
       )}
-      {showTripPlannerCTA && (
+      
+      {primaryAction === 'planner' && (
         <button
           onClick={() => {
             reset();
             openTripPlanner();
           }}
-          className="bg-secondary text-primary px-5 py-2.5 rounded-xl shadow-lg flex items-center justify-center gap-2 transition-all hover:bg-secondary/90"
+          className="flex-1 sm:flex-none bg-secondary text-primary px-5 py-3 sm:py-2.5 rounded-xl shadow-lg flex items-center justify-center gap-2 transition-all hover:bg-secondary/90"
         >
-          <MdDirections className="text-lg" />
-          <span className="text-sm font-medium">Planificar viaje</span>
+          <MdDirections className="text-xl sm:text-lg" />
+          <span className="text-base sm:text-sm font-medium">Planificar viaje</span>
+        </button>
+      )}
+
+      {/* Botones secundarios - más grandes en mobile si hay espacio */}
+      {primaryAction !== 'nearby' && showNearby && (
+        <button
+          onClick={handleFindNearby}
+          disabled={isLoading}
+          title="Rutas cercanas"
+          className={`bg-primary backdrop-blur-sm border border-secondary/30 text-secondary rounded-xl shadow-lg flex items-center justify-center transition-all hover:border-secondary/50 disabled:opacity-50 disabled:cursor-not-allowed ${
+            secondaryCount === 1 ? 'w-14 h-14 sm:w-11 sm:h-11' : 'w-12 h-12 sm:w-11 sm:h-11'
+          }`}
+        >
+          <BiBus className={secondaryCount === 1 ? 'text-2xl sm:text-xl' : 'text-xl'} />
+        </button>
+      )}
+      
+      {primaryAction !== 'planner' && showTripPlanner && (
+        <button
+          onClick={() => {
+            reset();
+            openTripPlanner();
+          }}
+          title="Planificar viaje"
+          className={`bg-primary backdrop-blur-sm border border-secondary/30 text-secondary rounded-xl shadow-lg flex items-center justify-center transition-all hover:border-secondary/50 ${
+            secondaryCount === 1 ? 'w-14 h-14 sm:w-11 sm:h-11' : 'w-12 h-12 sm:w-11 sm:h-11'
+          }`}
+        >
+          <MdDirections className={secondaryCount === 1 ? 'text-2xl sm:text-xl' : 'text-xl'} />
         </button>
       )}
     </div>
