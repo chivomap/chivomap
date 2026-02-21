@@ -125,13 +125,13 @@ export const TripPlannerSheet: React.FC = () => {
     
     // Si solo hay origen, enfocar punto
     if (origin && !destination) {
-      focusPoint(origin, { zoom: optimalViewport.zoom });
+      focusPoint(origin, { zoom: optimalViewport.zoom, sheetWillBeHalf: true });
       return;
     }
 
     // Si hay origen y destino, enfocar ambos puntos
     if (origin && destination) {
-      focusPoints([origin, destination], { maxZoom: optimalViewport.zoom });
+      focusPoints([origin, destination], { maxZoom: optimalViewport.zoom, sheetWillBeHalf: true });
     }
   }, [optimalViewport, origin, destination, focusPoint, focusPoints]);
 

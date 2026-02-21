@@ -3,23 +3,23 @@ import { BiBus, BiCurrentLocation, BiDirections } from 'react-icons/bi';
 import { MdDirections } from 'react-icons/md';
 import { useRutasStore } from '../../../store/rutasStore';
 import { useParadasStore } from '../../../store/paradasStore';
-import { useMapStore } from '../../../store/mapStore';
 import { usePinStore } from '../../../store/pinStore';
 import { usePlaceSearchStore } from '../../../store/placeSearchStore';
 import { useBottomSheet } from '../../../../hooks/useBottomSheet';
 import { useTripPlannerStore } from '../../../store/tripPlannerStore';
 import { useCurrentLocation } from '../../../../hooks/useGeolocation';
+import { useMapFocus } from '../../../../hooks/useMapFocus';
 import { env } from '../../../config/env';
 
 export const NearbyRoutesCTA: React.FC = () => {
   const { fetchNearbyRoutes, nearbyRoutes, clearSelectedRoute } = useRutasStore();
   const { fetchNearbyParadas } = useParadasStore();
-  const { updateConfig } = useMapStore();
   const { pin } = usePinStore();
   const { selectedResult } = usePlaceSearchStore();
   const { openTripPlanner } = useBottomSheet();
   const { reset, setOrigin, setDestination } = useTripPlannerStore();
   const { getLocation } = useCurrentLocation();
+  const { focusPoint } = useMapFocus();
   const [isLoading, setIsLoading] = useState(false);
 
   const handleFindNearby = async () => {
@@ -37,7 +37,10 @@ export const NearbyRoutesCTA: React.FC = () => {
       console.log(`[${new Date().toISOString()}] ✅ Location received (took ${geoTime - startTime}ms):`, location);
       
       console.log(`[${new Date().toISOString()}] 🗺️ Updating map center...`);
-      updateConfig({ center: { lat: location.lat, lng: location.lng }, zoom: 14 });
+      // Pequeño delay para asegurar que el mapa esté listo
+      setTimeout(() => {
+        focusPoint({ lat: location.lat, lng: location.lng }, { zoom: 14, sheetWillBeHalf: true });
+      }, 100);
       const mapTime = Date.now();
       console.log(`[${new Date().toISOString()}] ✅ Map updated (took ${mapTime - geoTime}ms)`);
       
