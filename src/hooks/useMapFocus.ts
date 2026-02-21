@@ -98,8 +98,6 @@ export const useMapFocus = () => {
   const focusPoints = useCallback((points: FocusPoint[], options: FocusOptions = {}) => {
     const { duration = 1000, maxZoom = 15, sheetWillBeHalf = false } = options;
     
-    console.log('🎯 focusPoints called:', { points, maxZoom, sheetWillBeHalf });
-    
     const event = new CustomEvent('map-focus-points', {
       detail: {
         points,

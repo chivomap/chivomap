@@ -63,14 +63,10 @@ export const MapLibreMap: React.FC = () => {
 
   // Zoom to route when selected
   useEffect(() => {
-    console.log('🔍 Route selection changed:', { 
-      hasRoute: !!selectedRoute, 
-      hasMapRef: !!mapRef.current
-    });
-    
     if (!selectedRoute || !mapRef.current) return;
     
     // Delay para que el drawer se abra primero
+    const DRAWER_TRANSITION_MS = 350;
     const timer = setTimeout(() => {
       try {
         const coords = selectedRoute.geometry.coordinates;
@@ -102,29 +98,17 @@ export const MapLibreMap: React.FC = () => {
               ? { top: 80, bottom: window.innerHeight * 0.52, left: 20, right: 20 }
               : { top: 80, bottom: 80, left: 400, right: 80 };
             
-            console.log('🗺️ Fitting route bounds:', { 
-              bounds: bounds.toArray(), 
-              padding, 
-              isMobile 
-            });
-            
             mapRef.current?.fitBounds(bounds, {
               padding,
               duration: 1000,
               maxZoom: 14,
             });
-            
-            console.log('✅ fitBounds called successfully');
-          } else {
-            console.warn('⚠️ Bounds is empty');
           }
-        } else {
-          console.warn('⚠️ coords is not an array');
         }
       } catch (error) {
-        console.error("❌ Error focusing route:", error);
+        console.error("Error focusing route:", error);
       }
-    }, 350); // Esperar a que el drawer se abra (300ms de transición + 50ms buffer)
+    }, DRAWER_TRANSITION_MS);
     
     return () => clearTimeout(timer);
   }, [selectedRoute]);
@@ -233,26 +217,16 @@ export const MapLibreMap: React.FC = () => {
   // Listener para enfocar múltiples puntos (fitBounds)
   useEffect(() => {
     const handleFocusPoints = (event: CustomEvent) => {
-      console.log('🗺️ handleFocusPoints received:', event.detail);
-      
-      if (!mapRef.current) {
-        console.warn('⚠️ mapRef.current is null');
-        return;
-      }
+      if (!mapRef.current) return;
 
       const { points, padding, duration, maxZoom } = event.detail;
       
-      if (!points || points.length === 0) {
-        console.warn('⚠️ No points provided');
-        return;
-      }
+      if (!points || points.length === 0) return;
 
       const bounds = new LngLatBounds();
       points.forEach((point: { lat: number; lng: number }) => {
         bounds.extend([point.lng, point.lat]);
       });
-
-      console.log('📍 Fitting bounds with padding:', padding);
       
       mapRef.current.fitBounds(bounds, {
         padding,
