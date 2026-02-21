@@ -590,10 +590,21 @@ const TripPlanResults: React.FC = () => {
     const option = tripPlan.options[selectedOptionIndex];
     if (!option) return;
     
+    // Filtrar legs visibles (excluir transbordos < 50m)
+    const visibleLegs = option.legs.map((leg, idx) => ({ leg, idx })).filter(({ leg, idx }) => {
+      const isFirstWalk = idx === 0;
+      const isLastWalk = idx === option.legs.length - 1;
+      const isTransferWalk = leg.type === 'walk' && !isFirstWalk && !isLastWalk;
+      return !(isTransferWalk && leg.distance_m < 50);
+    });
+    
     if (focusedLegIndex === null) {
-      setFocusedLegIndex(option.legs.length - 1);
-    } else if (focusedLegIndex > 0) {
-      setFocusedLegIndex(focusedLegIndex - 1);
+      setFocusedLegIndex(visibleLegs[visibleLegs.length - 1].idx);
+    } else {
+      const currentVisibleIdx = visibleLegs.findIndex(v => v.idx === focusedLegIndex);
+      if (currentVisibleIdx > 0) {
+        setFocusedLegIndex(visibleLegs[currentVisibleIdx - 1].idx);
+      }
     }
   };
 
@@ -602,10 +613,21 @@ const TripPlanResults: React.FC = () => {
     const option = tripPlan.options[selectedOptionIndex];
     if (!option) return;
     
+    // Filtrar legs visibles (excluir transbordos < 50m)
+    const visibleLegs = option.legs.map((leg, idx) => ({ leg, idx })).filter(({ leg, idx }) => {
+      const isFirstWalk = idx === 0;
+      const isLastWalk = idx === option.legs.length - 1;
+      const isTransferWalk = leg.type === 'walk' && !isFirstWalk && !isLastWalk;
+      return !(isTransferWalk && leg.distance_m < 50);
+    });
+    
     if (focusedLegIndex === null) {
-      setFocusedLegIndex(0);
-    } else if (focusedLegIndex < option.legs.length - 1) {
-      setFocusedLegIndex(focusedLegIndex + 1);
+      setFocusedLegIndex(visibleLegs[0].idx);
+    } else {
+      const currentVisibleIdx = visibleLegs.findIndex(v => v.idx === focusedLegIndex);
+      if (currentVisibleIdx < visibleLegs.length - 1) {
+        setFocusedLegIndex(visibleLegs[currentVisibleIdx + 1].idx);
+      }
     }
   };
 

@@ -77,20 +77,20 @@ export const NearbyRoutesCTA: React.FC = () => {
       openTripPlanner();
       
       // Ejecutar búsqueda automáticamente
-      setTimeout(async () => {
-        try {
-          const { planTrip } = await import('../../../api/trip');
-          const plan = await planTrip({ 
-            origin: { lat: location.lat, lng: location.lng, name: 'Tu ubicación' },
-            destination: { lat: pin.lat, lng: pin.lng, name: selectedResult?.name || 'Destino seleccionado' }
-          });
-          const { setTripPlan, setSelectedOptionIndex } = useTripPlannerStore.getState();
-          setTripPlan(plan);
-          setSelectedOptionIndex(plan.options.length > 0 ? 0 : null);
-        } catch (error) {
-          console.error('Error planning trip:', error);
-        }
-      }, 100);
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      try {
+        const { planTrip } = await import('../../../api/trip');
+        const plan = await planTrip({ 
+          origin: { lat: location.lat, lng: location.lng, name: 'Tu ubicación' },
+          destination: { lat: pin.lat, lng: pin.lng, name: selectedResult?.name || 'Destino seleccionado' }
+        });
+        const { setTripPlan, setSelectedOptionIndex } = useTripPlannerStore.getState();
+        setTripPlan(plan);
+        setSelectedOptionIndex(plan.options.length > 0 ? 0 : null);
+      } catch (error) {
+        console.error('Error planning trip:', error);
+      }
     } catch (error) {
       alert(error instanceof Error ? error.message : 'Error obteniendo ubicación');
     } finally {
