@@ -8,6 +8,9 @@ import type { LineLayerSpecification, SymbolLayerSpecification } from 'maplibre-
 export const RouteLayer = () => {
     const { selectedRoute, selectedRouteDirection } = useRutasStore();
 
+    // Feature flag: Ver docs/FEATURE_FLAGS.md
+    const SHOW_ROUTE_ARROWS = false;
+
     const geojsonData = useMemo<FeatureCollection | null>(() => {
         if (!selectedRoute) return null;
 
@@ -104,7 +107,7 @@ export const RouteLayer = () => {
             <Layer {...baseLineStyle} />
             <Layer {...activeOutlineStyle} />
             <Layer {...activeLineStyle} />
-            <Layer {...arrowStyle} />
+            {SHOW_ROUTE_ARROWS && <Layer {...arrowStyle} />}
         </Source>
     );
 };

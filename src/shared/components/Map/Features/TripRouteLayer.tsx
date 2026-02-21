@@ -7,6 +7,9 @@ import { getWalkRoute, type WalkRouteResponse } from '../../../api/routing';
 import type { RutaDetailResponse, RutaFeature } from '../../../types/rutas';
 import type { TripLeg } from '../../../types/trip';
 
+// Feature flag: Ocultar flechas (ver docs/FEATURE_FLAGS.md)
+const SHOW_TRIP_ROUTE_ARROWS = false;
+
 const pointDistanceMeters = (a: { lat: number; lng: number }, b: [number, number]) => {
   const toRad = (deg: number) => (deg * Math.PI) / 180;
   const R = 6371000;
@@ -396,26 +399,28 @@ export const TripRouteLayer: React.FC<{ selectedOptionIndex: number | null }> = 
               'line-join': 'round',
             }}
           />
-          <Layer
-            id="trip-bus-routes-arrows"
-            type="symbol"
-            layout={{
-              'symbol-placement': 'line',
-              'symbol-spacing': 100,
-              'icon-image': 'arrow',
-              'icon-size': 0.5,
-              'icon-rotate': 90,
-              'icon-rotation-alignment': 'map',
-              'icon-keep-upright': false,
-              'icon-allow-overlap': true,
-              'icon-ignore-placement': true,
-            }}
-            filter={['==', ['get', 'isActive'], true]}
-            paint={{
-              'icon-opacity': 0.95,
-              'icon-color': '#0f172a',
-            }}
-          />
+          {SHOW_TRIP_ROUTE_ARROWS && (
+            <Layer
+              id="trip-bus-routes-arrows"
+              type="symbol"
+              layout={{
+                'symbol-placement': 'line',
+                'symbol-spacing': 100,
+                'icon-image': 'arrow',
+                'icon-size': 0.5,
+                'icon-rotate': 90,
+                'icon-rotation-alignment': 'map',
+                'icon-keep-upright': false,
+                'icon-allow-overlap': true,
+                'icon-ignore-placement': true,
+              }}
+              filter={['==', ['get', 'isActive'], true]}
+              paint={{
+                'icon-opacity': 0.95,
+                'icon-color': '#0f172a',
+              }}
+            />
+          )}
         </Source>
       )}
 
