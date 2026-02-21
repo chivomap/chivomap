@@ -54,10 +54,7 @@ export const MapControls: React.FC = () => {
         zoom: 15
       });
     } catch (error) {
-      // Error ya manejado por el hook
-      if (locationError) {
-        alert(locationError);
-      }
+      alert(error instanceof Error ? error.message : 'Error obteniendo ubicación');
     }
   };
 

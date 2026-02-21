@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { BiBus, BiCurrentLocation } from 'react-icons/bi';
 import { MdDirections } from 'react-icons/md';
 import { useRutasStore } from '../../../store/rutasStore';
@@ -15,13 +15,15 @@ export const NearbyRoutesCTA: React.FC = () => {
   const { updateConfig } = useMapStore();
   const { openTripPlanner } = useBottomSheet();
   const { reset } = useTripPlannerStore();
-  const { getLocation, loading: isLoading, error: locationError } = useCurrentLocation();
+  const { getLocation } = useCurrentLocation();
+  const [isLoading, setIsLoading] = useState(false);
 
   const handleFindNearby = async () => {
     const startTime = Date.now();
     console.log(`[${new Date().toISOString()}] 🚌 CTA "Buscar rutas cercanas" clicked`);
     
     clearSelectedRoute();
+    setIsLoading(true);
     
     try {
       console.log(`[${new Date().toISOString()}] 📡 Requesting geolocation...`);
@@ -45,9 +47,9 @@ export const NearbyRoutesCTA: React.FC = () => {
       console.log(`[${new Date().toISOString()}] ⏱️ Total time: ${totalTime - startTime}ms`);
     } catch (error) {
       console.error(`[${new Date().toISOString()}] ❌ Error (took ${Date.now() - startTime}ms):`, error);
-      if (locationError) {
-        alert(locationError);
-      }
+      alert(error instanceof Error ? error.message : 'Error obteniendo ubicación');
+    } finally {
+      setIsLoading(false);
     }
   };
 

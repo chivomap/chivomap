@@ -68,16 +68,24 @@ const loadLastViewport = (): MapConfigOptions => {
   };
 };
 
+// Debounce para guardar viewport en localStorage
+let saveViewportTimeout: NodeJS.Timeout | null = null;
+const debouncedSaveViewport = (config: MapConfigOptions) => {
+  if (saveViewportTimeout) clearTimeout(saveViewportTimeout);
+  saveViewportTimeout = setTimeout(() => {
+    try {
+      localStorage.setItem('chivomap-last-viewport', JSON.stringify(config));
+    } catch (error) {
+      console.warn('Failed to save viewport:', error);
+    }
+  }, 1000);
+};
+
 export const useMapStore = create<MapState>((set, get) => ({
   config: loadLastViewport(),
   updateConfig: (newConfig) => {
     set(() => ({ config: newConfig }));
-    // Guardar en localStorage
-    try {
-      localStorage.setItem('chivomap-last-viewport', JSON.stringify(newConfig));
-    } catch (error) {
-      console.warn('Failed to save viewport:', error);
-    }
+    debouncedSaveViewport(newConfig);
   },
   
   savedViewport: null,
