@@ -69,7 +69,7 @@ const loadLastViewport = (): MapConfigOptions => {
 };
 
 // Debounce para guardar viewport en localStorage
-let saveViewportTimeout: NodeJS.Timeout | null = null;
+let saveViewportTimeout: number | null = null;
 const debouncedSaveViewport = (config: MapConfigOptions) => {
   if (saveViewportTimeout) clearTimeout(saveViewportTimeout);
   saveViewportTimeout = setTimeout(() => {

@@ -15,7 +15,7 @@ export const MapControls: React.FC = () => {
   const { pin, clearPin } = usePinStore();
   const { openNearbyRoutes } = useBottomSheet();
   const { updateConfig, config } = useMapStore();
-  const { getLocation, loading: isLocating, error: locationError } = useCurrentLocation();
+  const { getLocation, loading: isLocating } = useCurrentLocation();
 
   const zoomIn = () => {
     if (map) map.zoomIn();
