@@ -143,9 +143,16 @@ export const TripPlannerSheet: React.FC = () => {
       try {
         const location = await getLocation();
         
+        // Verificar que el usuario no haya seleccionado un origen mientras esperábamos
+        if (origin) return;
+        
         // Intentar reverse geocoding para obtener dirección legible
         try {
           const geocodeResult = await reverseGeocode(location.lat, location.lng);
+          
+          // Verificar nuevamente antes de aplicar el resultado
+          if (origin) return;
+          
           if (geocodeResult.results && geocodeResult.results.length > 0) {
             const place = geocodeResult.results[0];
             // Usar display_name si está disponible, sino construir desde address
@@ -175,6 +182,10 @@ export const TripPlannerSheet: React.FC = () => {
           }
         } catch (geocodeError) {
           console.warn('Reverse geocoding failed, using coordinates:', geocodeError);
+          
+          // Verificar antes del fallback
+          if (origin) return;
+          
           // Fallback a coordenadas
           setOrigin({
             lat: location.lat,
