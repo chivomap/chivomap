@@ -366,7 +366,7 @@ export const TripRouteLayer: React.FC<{ selectedOptionIndex: number | null }> = 
                 'case',
                 ['==', ['get', 'isActive'], true],
                 0.5,
-                0.2,
+                0.35, // Menos transparente (antes 0.2)
               ],
             }}
             layout={{
@@ -389,7 +389,7 @@ export const TripRouteLayer: React.FC<{ selectedOptionIndex: number | null }> = 
                 'case',
                 ['==', ['get', 'isActive'], true],
                 0.95,
-                0.25,
+                0.5, // Menos transparente (antes 0.25)
               ],
             }}
             layout={{
@@ -440,7 +440,7 @@ export const TripRouteLayer: React.FC<{ selectedOptionIndex: number | null }> = 
                 'case',
                 ['==', ['get', 'isActive'], true],
                 0.75,
-                0.25,
+                0.45, // Menos transparente (antes 0.25)
               ],
               'line-dasharray': [2, 2]
             }}

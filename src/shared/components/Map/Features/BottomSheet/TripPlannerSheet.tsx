@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { BiCurrentLocation, BiMap, BiLoaderAlt, BiWalk } from 'react-icons/bi';
+import { BiCurrentLocation, BiMap, BiLoaderAlt, BiWalk, BiChevronLeft, BiChevronRight } from 'react-icons/bi';
 import { MdSwapVert } from 'react-icons/md';
 import { FaBus } from 'react-icons/fa';
 import { useTripPlannerStore } from '../../../../store/tripPlannerStore';
@@ -613,13 +613,73 @@ const TripPlanResults: React.FC = () => {
     return colors[confidence as keyof typeof colors] || colors.low;
   };
 
+  const handlePrevStep = () => {
+    if (selectedOptionIndex === null) return;
+    const option = tripPlan.options[selectedOptionIndex];
+    if (!option) return;
+    
+    if (focusedLegIndex === null) {
+      setFocusedLegIndex(option.legs.length - 1);
+    } else if (focusedLegIndex > 0) {
+      setFocusedLegIndex(focusedLegIndex - 1);
+    }
+  };
+
+  const handleNextStep = () => {
+    if (selectedOptionIndex === null) return;
+    const option = tripPlan.options[selectedOptionIndex];
+    if (!option) return;
+    
+    if (focusedLegIndex === null) {
+      setFocusedLegIndex(0);
+    } else if (focusedLegIndex < option.legs.length - 1) {
+      setFocusedLegIndex(focusedLegIndex + 1);
+    }
+  };
+
+  const canGoPrev = selectedOptionIndex !== null && (focusedLegIndex === null || focusedLegIndex > 0);
+  const canGoNext = selectedOptionIndex !== null && tripPlan.options[selectedOptionIndex] && 
+    (focusedLegIndex === null || focusedLegIndex < tripPlan.options[selectedOptionIndex].legs.length - 1);
+
   return (
     <div className="flex flex-col h-full min-h-0">
       <div className="flex-shrink-0 p-4 border-b border-white/10 bg-primary/95 backdrop-blur">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between mb-2">
           <h2 className="text-base sm:text-lg font-semibold text-white">Opciones de viaje</h2>
           <CloseButton onClick={handleClose} />
         </div>
+        
+        {/* Navegación de pasos */}
+        {selectedOptionIndex !== null && (
+          <div className="flex items-center gap-2 w-full">
+            <button
+              onClick={handlePrevStep}
+              disabled={!canGoPrev}
+              className="flex-1 flex items-center justify-center gap-1 px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors text-sm text-white"
+            >
+              <BiChevronLeft className="w-4 h-4" />
+              Anterior
+            </button>
+            <button
+              onClick={() => setFocusedLegIndex(null)}
+              className={`flex-1 px-3 py-1.5 rounded-lg transition-colors text-sm ${
+                focusedLegIndex === null 
+                  ? 'bg-secondary text-primary font-medium' 
+                  : 'bg-white/5 hover:bg-white/10 text-white'
+              }`}
+            >
+              Ver todo
+            </button>
+            <button
+              onClick={handleNextStep}
+              disabled={!canGoNext}
+              className="flex-1 flex items-center justify-center gap-1 px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors text-sm text-white"
+            >
+              Siguiente
+              <BiChevronRight className="w-4 h-4" />
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Lista scrolleable */}

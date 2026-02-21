@@ -198,11 +198,12 @@ export const MapLibreMap: React.FC = () => {
       const isMobile = window.innerWidth < 640;
       mapRef.current.fitBounds(bounds, {
         padding: isMobile
-          ? { top: 140, bottom: 180, left: 40, right: 40 }
+          ? { top: 140, bottom: window.innerHeight * 0.48, left: 40, right: 40 }
           : { top: 120, bottom: 120, left: 60, right: 60 },
-        duration: 1200,
-        pitch: isMobile ? 30 : 45,
-        bearing: -15,
+        duration: 800, // Más rápido (antes 1200ms)
+        maxZoom: focusLeg ? 15 : 14, // Limitar zoom cuando enfoca un paso
+        pitch: 0, // Sin inclinación
+        bearing: 0, // Sin rotación
       });
     }
   }, [tripPlan, selectedOptionIndex, focusedLegIndex]);
