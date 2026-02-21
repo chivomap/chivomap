@@ -16,7 +16,7 @@ export const NearbyRoutesCTA: React.FC = () => {
   const { fetchNearbyParadas } = useParadasStore();
   const { pin } = usePinStore();
   const { selectedResult } = usePlaceSearchStore();
-  const { openTripPlanner } = useBottomSheet();
+  const { openTripPlanner, contentType } = useBottomSheet();
   const { reset, setOrigin, setDestination } = useTripPlannerStore();
   const { getLocation } = useCurrentLocation();
   const { focusPoint } = useMapFocus();
@@ -85,9 +85,13 @@ export const NearbyRoutesCTA: React.FC = () => {
           origin: { lat: location.lat, lng: location.lng, name: 'Tu ubicación' },
           destination: { lat: pin.lat, lng: pin.lng, name: selectedResult?.name || 'Destino seleccionado' }
         });
-        const { setTripPlan, setSelectedOptionIndex } = useTripPlannerStore.getState();
-        setTripPlan(plan);
-        setSelectedOptionIndex(plan.options.length > 0 ? 0 : null);
+        
+        // Verificar que el planner sigue abierto antes de aplicar resultado
+        if (contentType === 'tripPlanner') {
+          const { setTripPlan, setSelectedOptionIndex } = useTripPlannerStore.getState();
+          setTripPlan(plan);
+          setSelectedOptionIndex(plan.options.length > 0 ? 0 : null);
+        }
       } catch (error) {
         console.error('Error planning trip:', error);
       }
@@ -101,8 +105,10 @@ export const NearbyRoutesCTA: React.FC = () => {
   const showNearbyCTA = !pin && !(nearbyRoutes && nearbyRoutes.length > 0);
   const showTripPlannerCTA = env.FEATURE_TRIP_PLANNER; // Siempre disponible
   const showGetDirectionsCTA = pin && env.FEATURE_TRIP_PLANNER;
+  // Fallback: mostrar nearby CTA si trip planner está deshabilitado y hay pin
+  const showNearbyFallback = pin && !env.FEATURE_TRIP_PLANNER;
 
-  if (!showNearbyCTA && !showTripPlannerCTA && !showGetDirectionsCTA) return null;
+  if (!showNearbyCTA && !showTripPlannerCTA && !showGetDirectionsCTA && !showNearbyFallback) return null;
 
   return (
     <div
@@ -128,7 +134,7 @@ export const NearbyRoutesCTA: React.FC = () => {
           )}
         </button>
       )}
-      {showNearbyCTA && (
+      {(showNearbyCTA || showNearbyFallback) && (
         <button
           onClick={handleFindNearby}
           disabled={isLoading}
