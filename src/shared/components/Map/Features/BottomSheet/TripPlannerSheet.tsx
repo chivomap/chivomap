@@ -689,8 +689,9 @@ const TripPlanResults: React.FC = () => {
                 </span>
               </div>
 
-              {/* Resumen de rutas */}
-              <div className="flex flex-wrap items-center gap-1.5 mb-1">
+              {/* Resumen de rutas - solo mostrar si no hay leg enfocado */}
+              {focusedLegIndex === null && (
+                <div className="flex flex-wrap items-center gap-1.5 mb-1">
                 {option.legs
                   .map((leg, legIdx) => ({ ...leg, legIdx }))
                   .filter(leg => leg.type === 'bus')
@@ -734,7 +735,8 @@ const TripPlanResults: React.FC = () => {
                     • {option.total_transfers} transbordo{option.total_transfers > 1 ? 's' : ''}
                   </span>
                 )}
-              </div>
+                </div>
+              )}
 
               {/* Detalles expandibles */}
               {selectedOptionIndex === idx && (
