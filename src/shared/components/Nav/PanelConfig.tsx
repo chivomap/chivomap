@@ -29,8 +29,8 @@ export const PanelConfig = () => {
         flex flex-col items-center justify-center'>
         
         <div className='px-4'>
-          {options.map((option, index) => (
-            <div key={index} className='flex gap-2 items-center justify-between text-lg w-full'>
+          {options.map((option) => (
+            <div key={option.name} className='flex gap-2 items-center justify-between text-lg w-full'>
               <div className="flex gap-2 items-center justify-center">
                 {option.icon}
                 <p>{option.name}</p>

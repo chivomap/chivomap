@@ -179,23 +179,81 @@ export const MapLibreMap: React.FC = () => {
     }
   }, [tripPlan, selectedOptionIndex, focusedLegIndex]);
 
+  // Listener para enfocar un solo punto
+  useEffect(() => {
+    const handleFocusPoint = (event: CustomEvent) => {
+      if (!mapRef.current) return;
+
+      const { point, zoom, duration, offset } = event.detail;
+      const map = mapRef.current.getMap();
+      
+      map.easeTo({
+        center: [point.lng, point.lat],
+        zoom,
+        duration,
+        offset,
+      });
+    };
+
+    window.addEventListener('map-focus-point', handleFocusPoint as EventListener);
+    return () => {
+      window.removeEventListener('map-focus-point', handleFocusPoint as EventListener);
+    };
+  }, []);
+
+  // Listener para enfocar múltiples puntos (fitBounds)
+  useEffect(() => {
+    const handleFocusPoints = (event: CustomEvent) => {
+      if (!mapRef.current) return;
+
+      const { points, padding, duration, maxZoom } = event.detail;
+      
+      if (!points || points.length === 0) return;
+
+      const bounds = new LngLatBounds();
+      points.forEach((point: { lat: number; lng: number }) => {
+        bounds.extend([point.lng, point.lat]);
+      });
+
+      mapRef.current.fitBounds(bounds, {
+        padding,
+        duration,
+        maxZoom,
+      });
+    };
+
+    window.addEventListener('map-focus-points', handleFocusPoints as EventListener);
+    return () => {
+      window.removeEventListener('map-focus-points', handleFocusPoints as EventListener);
+    };
+  }, []);
+
   const handleMapLoad = useCallback(() => {
     if (mapRef.current) {
       const map = mapRef.current.getMap();
       
-      // Crear ícono de flecha SVG
+      // Crear ícono de flecha SVG más notable
       const arrowSvg = `
-        <svg width="24" height="24" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-          <path d="M12 2 L12 18 M12 18 L6 12 M12 18 L18 12" 
-                stroke="white" 
-                stroke-width="3" 
+        <svg width="32" height="32" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
+          <!-- Sombra/outline para mejor visibilidad -->
+          <path d="M16 4 L16 24 M16 24 L9 17 M16 24 L23 17" 
+                stroke="#000000" 
+                stroke-width="5" 
+                fill="none" 
+                stroke-linecap="round" 
+                stroke-linejoin="round"
+                opacity="0.3"/>
+          <!-- Flecha principal -->
+          <path d="M16 4 L16 24 M16 24 L9 17 M16 24 L23 17" 
+                stroke="#FFFFFF" 
+                stroke-width="3.5" 
                 fill="none" 
                 stroke-linecap="round" 
                 stroke-linejoin="round"/>
         </svg>
       `;
       
-      const img = new Image(24, 24);
+      const img = new Image(32, 32);
       img.onload = () => {
         if (!map.hasImage('arrow')) {
           map.addImage('arrow', img);
@@ -525,8 +583,8 @@ export const MapLibreMap: React.FC = () => {
           }
         }}
         maxBounds={[
-          [-91.00994252677712, 11.214449814812207], // Southwest
-          [-85.6233130419287, 17.838768214869866]   // Northeast
+          [-92.5, 10.5], // Southwest - Ampliado
+          [-84.5, 18.5]  // Northeast - Ampliado
         ]}
         interactiveLayerIds={interactiveLayers}
         attributionControl={false}

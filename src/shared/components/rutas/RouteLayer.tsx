@@ -1,68 +1,35 @@
 import { useMemo } from 'react';
 import { Source, Layer } from 'react-map-gl/maplibre';
-import type { FeatureCollection, Geometry } from 'geojson';
+import type { FeatureCollection } from 'geojson';
 import { useRutasStore } from '../../store/rutasStore';
 import { RUTA_COLORS, type SubtipoRuta } from '../../types/rutas';
 import type { LineLayerSpecification, SymbolLayerSpecification } from 'maplibre-gl';
-
-const getDirectionalGeometry = (geometry: Geometry, sentido?: string) => {
-    const direction = sentido?.toUpperCase();
-    if (direction !== 'REGRESO') return geometry;
-
-    if (geometry.type === 'LineString') {
-        return {
-            ...geometry,
-            coordinates: [...geometry.coordinates].reverse(),
-        } as Geometry;
-    }
-
-    if (geometry.type === 'MultiLineString') {
-        return {
-            ...geometry,
-            coordinates: geometry.coordinates.map((line) => [...line].reverse()),
-        } as Geometry;
-    }
-
-    return geometry;
-};
+import { env } from '../../config/env';
 
 export const RouteLayer = () => {
-    const { selectedRoute, selectedRouteVariants } = useRutasStore();
+    const { selectedRoute, selectedRouteDirection } = useRutasStore();
 
     const geojsonData = useMemo<FeatureCollection | null>(() => {
-        const routes = selectedRouteVariants.length > 0
-            ? selectedRouteVariants
-            : selectedRoute
-                ? [selectedRoute]
-                : [];
-
-        if (routes.length === 0) return null;
-
-        const activeSentido = selectedRoute?.properties.SENTIDO?.toUpperCase();
-        const fallbackSentido = routes[0]?.properties.SENTIDO?.toUpperCase();
-        const activeKey = activeSentido || fallbackSentido;
+        if (!selectedRoute) return null;
 
         return {
             type: 'FeatureCollection' as const,
-            features: routes.map((route, index) => {
-                const subtipo = route.properties.SUBTIPO as SubtipoRuta;
-                const color = RUTA_COLORS[subtipo] || '#3b82f6';
-                const sentido = route.properties.SENTIDO?.toUpperCase();
-
-                return {
-                    type: 'Feature' as const,
-                    geometry: getDirectionalGeometry(route.geometry as unknown as Geometry, route.properties.SENTIDO),
-                    properties: {
-                        ...route.properties,
-                        color,
-                        isActive: activeKey ? sentido === activeKey : index === 0,
-                    }
-                };
-            })
+            features: [{
+                type: 'Feature' as const,
+                geometry: selectedRoute.geometry,
+                properties: {
+                    ...selectedRoute.properties,
+                    color: RUTA_COLORS[selectedRoute.properties.SUBTIPO as SubtipoRuta] || '#3b82f6',
+                    isActive: true,
+                }
+            }]
         } as FeatureCollection;
-    }, [selectedRoute, selectedRouteVariants]);
+    }, [selectedRoute, selectedRouteDirection]);
 
-    if (!geojsonData) return null;
+    if (!geojsonData || !selectedRoute) return null;
+
+    // Key único para forzar re-render cuando cambia el sentido
+    const sourceKey = `selected-route-${selectedRoute.properties.Código_de}-${selectedRoute.properties.SENTIDO}`;
 
     const baseLineStyle: LineLayerSpecification = {
         id: 'selected-route-base',
@@ -119,9 +86,9 @@ export const RouteLayer = () => {
         filter: ['==', ['get', 'isActive'], true],
         layout: {
             'symbol-placement': 'line',
-            'symbol-spacing': 100,
+            'symbol-spacing': 80,
             'icon-image': 'arrow',
-            'icon-size': 0.5,
+            'icon-size': 0.6,
             'icon-rotate': 90,
             'icon-rotation-alignment': 'map',
             'icon-keep-upright': false,
@@ -129,16 +96,16 @@ export const RouteLayer = () => {
             'icon-ignore-placement': true,
         },
         paint: {
-            'icon-opacity': 0.8,
+            'icon-opacity': 0.9,
         },
     };
 
     return (
-        <Source id="selected-route" type="geojson" data={geojsonData}>
+        <Source key={sourceKey} id="selected-route" type="geojson" data={geojsonData}>
             <Layer {...baseLineStyle} />
             <Layer {...activeOutlineStyle} />
             <Layer {...activeLineStyle} />
-            <Layer {...arrowStyle} />
+            {env.FEATURE_ROUTE_ARROWS && <Layer {...arrowStyle} />}
         </Source>
     );
 };

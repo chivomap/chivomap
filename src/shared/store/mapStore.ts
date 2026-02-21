@@ -33,12 +33,60 @@ interface MapConfigOptions {
   zoom: number;
 }
 
-export const useMapStore = create<MapState>((set, get) => ({
-  config: {
+// Cargar última ubicación guardada
+const loadLastViewport = (): MapConfigOptions => {
+  if (typeof window === 'undefined') {
+    return {
+      center: { lat: env.MAP_DEFAULT_LAT, lng: env.MAP_DEFAULT_LNG },
+      zoom: env.MAP_DEFAULT_ZOOM,
+    };
+  }
+
+  try {
+    const saved = localStorage.getItem('chivomap-last-viewport');
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      // Validar que los datos sean correctos
+      if (
+        parsed.center?.lat &&
+        parsed.center?.lng &&
+        parsed.zoom &&
+        typeof parsed.center.lat === 'number' &&
+        typeof parsed.center.lng === 'number' &&
+        typeof parsed.zoom === 'number'
+      ) {
+        return parsed;
+      }
+    }
+  } catch (error) {
+    console.warn('Failed to load last viewport:', error);
+  }
+
+  return {
     center: { lat: env.MAP_DEFAULT_LAT, lng: env.MAP_DEFAULT_LNG },
     zoom: env.MAP_DEFAULT_ZOOM,
+  };
+};
+
+// Debounce para guardar viewport en localStorage
+let saveViewportTimeout: number | null = null;
+const debouncedSaveViewport = (config: MapConfigOptions) => {
+  if (saveViewportTimeout) clearTimeout(saveViewportTimeout);
+  saveViewportTimeout = setTimeout(() => {
+    try {
+      localStorage.setItem('chivomap-last-viewport', JSON.stringify(config));
+    } catch (error) {
+      console.warn('Failed to save viewport:', error);
+    }
+  }, 1000);
+};
+
+export const useMapStore = create<MapState>((set, get) => ({
+  config: loadLastViewport(),
+  updateConfig: (newConfig) => {
+    set(() => ({ config: newConfig }));
+    debouncedSaveViewport(newConfig);
   },
-  updateConfig: (newConfig) => set(() => ({ config: newConfig })),
   
   savedViewport: null,
   saveViewport: () => {

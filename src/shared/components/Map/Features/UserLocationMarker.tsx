@@ -1,60 +1,22 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { Marker } from 'react-map-gl/maplibre';
+import { useGeolocation } from '../../../../hooks/useGeolocation';
 
 export const UserLocationMarker: React.FC = () => {
-  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
-  const [watchId, setWatchId] = useState<number | null>(null);
+  const { location, permissionState } = useGeolocation({
+    watch: true,
+    enableHighAccuracy: false,
+    timeout: 10000,
+    maximumAge: 30000,
+  });
 
-  useEffect(() => {
-    console.log('🌐 App loaded - checking geolocation permissions...');
-    // Solo iniciar watch si el usuario ya dio permisos
-    if (navigator.geolocation && navigator.permissions) {
-      navigator.permissions.query({ name: 'geolocation' }).then((result) => {
-        console.log('🔐 Geolocation permission status:', result.state);
-        if (result.state === 'granted') {
-          console.log('✅ Permission granted - starting location watch...');
-          // Ya tiene permisos, iniciar watch
-          const id = navigator.geolocation.watchPosition(
-            (position) => {
-              const location = {
-                lat: position.coords.latitude,
-                lng: position.coords.longitude
-              };
-              console.log('📍 User location updated:', location);
-              setUserLocation(location);
-            },
-            (error) => {
-              console.error('❌ Location watch error:', error);
-            },
-            {
-              enableHighAccuracy: false,
-              maximumAge: 30000,
-              timeout: 10000
-            }
-          );
-          setWatchId(id);
-        } else {
-          console.log('⚠️ No geolocation permission - user marker will not show until permission granted');
-        }
-      });
-    } else {
-      console.log('❌ Geolocation or Permissions API not supported');
-    }
-
-    return () => {
-      if (watchId !== null) {
-        console.log('🛑 Stopping location watch');
-        navigator.geolocation.clearWatch(watchId);
-      }
-    };
-  }, []);
-
-  if (!userLocation) return null;
+  // Solo mostrar si hay ubicación y permisos concedidos
+  if (!location || permissionState !== 'granted') return null;
 
   return (
     <Marker
-      longitude={userLocation.lng}
-      latitude={userLocation.lat}
+      longitude={location.lng}
+      latitude={location.lat}
       anchor="center"
     >
       <div className="relative">

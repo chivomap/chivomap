@@ -13,7 +13,6 @@ export const TextCarousel: React.FC = () => {
   useEffect(() => {
     const fetchData = async () => {
       const data = await getGeoData();
-      console.log(data);
       // Mantener el mismo orden solo mover "SAN SALVADOR" al principio
       const sorted = [...data.data.departamentos];
       sorted.sort((a, b) => {
@@ -39,7 +38,6 @@ export const TextCarousel: React.FC = () => {
   const handleFetchData = async (depto: string) => {
     setLoading(true);
     const data = await getQueryData(depto, 'D');
-    console.log(data);
     updateGeojson(data);
     setLoading(false);
   };
@@ -58,7 +56,7 @@ export const TextCarousel: React.FC = () => {
       <div className="relative text-2xl h-8 md:h-6 overflow-hidden rounded-lg flex items-center justify-center">
         {departamentos.map((item, index) => (
           <div
-            key={index}
+            key={item}
             className={`absolute transition duration-700 ease-in-out transform ${activeIndex === index ? 'opacity-100' : 'opacity-0'} ${activeIndex === index ? 'translate-x-0' : 'translate-x-full'}`}
             data-carousel-item={activeIndex === index ? "active" : ""}
           >

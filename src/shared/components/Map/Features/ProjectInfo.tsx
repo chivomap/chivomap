@@ -78,9 +78,9 @@ export const ProjectInfo: React.FC = () => {
               <div>
                 <h3 className="font-semibold text-secondary mb-2">Tecnologías</h3>
                 <div className="flex flex-wrap gap-2">
-                  {technologies.map((tech, index) => (
+                  {technologies.map((tech) => (
                     <span
-                      key={index}
+                      key={tech}
                       className="px-2 py-1 bg-secondary/20 text-secondary text-xs rounded-full"
                     >
                       {tech}

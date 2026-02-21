@@ -8,6 +8,7 @@ interface EnvConfig {
   NODE_ENV: string;
   ENABLE_CONSOLE_LOGS: boolean;
   FEATURE_TRIP_PLANNER: boolean;
+  FEATURE_ROUTE_ARROWS: boolean;
 }
 
 const getEnvVar = (key: string, defaultValue?: string): string => {
@@ -42,6 +43,7 @@ export const env: EnvConfig = {
   NODE_ENV: getEnvVar('NODE_ENV', 'development'),
   ENABLE_CONSOLE_LOGS: getEnvBoolean('ENABLE_CONSOLE_LOGS', true),
   FEATURE_TRIP_PLANNER: getEnvBoolean('FEATURE_TRIP_PLANNER', false),
+  FEATURE_ROUTE_ARROWS: getEnvBoolean('FEATURE_ROUTE_ARROWS', false),
 };
 
 export const isDevelopment = env.NODE_ENV === 'development';
