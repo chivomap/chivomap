@@ -4,12 +4,10 @@ import type { FeatureCollection } from 'geojson';
 import { useRutasStore } from '../../store/rutasStore';
 import { RUTA_COLORS, type SubtipoRuta } from '../../types/rutas';
 import type { LineLayerSpecification, SymbolLayerSpecification } from 'maplibre-gl';
+import { env } from '../../config/env';
 
 export const RouteLayer = () => {
     const { selectedRoute, selectedRouteDirection } = useRutasStore();
-
-    // Feature flag: Ver docs/FEATURE_FLAGS.md
-    const SHOW_ROUTE_ARROWS = false;
 
     const geojsonData = useMemo<FeatureCollection | null>(() => {
         if (!selectedRoute) return null;
@@ -107,7 +105,7 @@ export const RouteLayer = () => {
             <Layer {...baseLineStyle} />
             <Layer {...activeOutlineStyle} />
             <Layer {...activeLineStyle} />
-            {SHOW_ROUTE_ARROWS && <Layer {...arrowStyle} />}
+            {env.FEATURE_ROUTE_ARROWS && <Layer {...arrowStyle} />}
         </Source>
     );
 };

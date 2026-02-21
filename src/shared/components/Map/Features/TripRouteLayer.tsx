@@ -6,9 +6,7 @@ import { getRouteByCode } from '../../../services/GetRutasData';
 import { getWalkRoute, type WalkRouteResponse } from '../../../api/routing';
 import type { RutaDetailResponse, RutaFeature } from '../../../types/rutas';
 import type { TripLeg } from '../../../types/trip';
-
-// Feature flag: Ocultar flechas (ver docs/FEATURE_FLAGS.md)
-const SHOW_TRIP_ROUTE_ARROWS = false;
+import { env } from '../../../config/env';
 
 const pointDistanceMeters = (a: { lat: number; lng: number }, b: [number, number]) => {
   const toRad = (deg: number) => (deg * Math.PI) / 180;
@@ -399,7 +397,7 @@ export const TripRouteLayer: React.FC<{ selectedOptionIndex: number | null }> = 
               'line-join': 'round',
             }}
           />
-          {SHOW_TRIP_ROUTE_ARROWS && (
+          {env.FEATURE_ROUTE_ARROWS && (
             <Layer
               id="trip-bus-routes-arrows"
               type="symbol"
