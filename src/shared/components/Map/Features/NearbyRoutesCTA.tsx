@@ -66,37 +66,34 @@ export const NearbyRoutesCTA: React.FC = () => {
     setIsLoading(true);
     try {
       const location = await getLocation();
-      setOrigin({ lat: location.lat, lng: location.lng, name: 'Tu ubicación' });
-      setDestination({ 
+      const origin = { lat: location.lat, lng: location.lng, name: 'Tu ubicación' };
+      const destination = { 
         lat: pin.lat, 
         lng: pin.lng, 
         name: selectedResult?.name || 'Destino seleccionado' 
-      });
+      };
       
-      // Abrir trip planner y esperar a que se monte
+      setOrigin(origin);
+      setDestination(destination);
+      
+      // Abrir trip planner
       openTripPlanner();
       
-      // Ejecutar búsqueda automáticamente
-      await new Promise(resolve => setTimeout(resolve, 100));
+      // Esperar a que se monte y ejecutar búsqueda automáticamente
+      await new Promise(resolve => setTimeout(resolve, 150));
       
-      try {
-        const { planTrip } = await import('../../../api/trip');
-        const plan = await planTrip({ 
-          origin: { lat: location.lat, lng: location.lng, name: 'Tu ubicación' },
-          destination: { lat: pin.lat, lng: pin.lng, name: selectedResult?.name || 'Destino seleccionado' }
-        });
-        
-        // Verificar que el planner sigue abierto antes de aplicar resultado
-        if (contentType === 'tripPlanner') {
-          const { setTripPlan, setSelectedOptionIndex } = useTripPlannerStore.getState();
-          setTripPlan(plan);
-          setSelectedOptionIndex(plan.options.length > 0 ? 0 : null);
-        }
-      } catch (error) {
-        console.error('Error planning trip:', error);
+      const { planTrip } = await import('../../../api/trip');
+      const plan = await planTrip({ origin, destination });
+      
+      // Verificar que el planner sigue abierto antes de aplicar resultado
+      if (contentType === 'tripPlanner') {
+        const { setTripPlan, setSelectedOptionIndex } = useTripPlannerStore.getState();
+        setTripPlan(plan);
+        setSelectedOptionIndex(plan.options.length > 0 ? 0 : null);
       }
     } catch (error) {
-      alert(error instanceof Error ? error.message : 'Error obteniendo ubicación');
+      console.error('Error planning trip:', error);
+      alert(error instanceof Error ? error.message : 'Error obteniendo ubicación o planificando ruta');
     } finally {
       setIsLoading(false);
     }
@@ -127,7 +124,7 @@ export const NearbyRoutesCTA: React.FC = () => {
         <button
           onClick={handleGetDirections}
           disabled={isLoading}
-          className="flex-1 sm:flex-none bg-secondary text-primary px-5 py-3 sm:py-2.5 rounded-xl shadow-lg flex items-center justify-center gap-2 transition-all hover:bg-secondary/90 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="flex-1 sm:flex-none bg-secondary text-primary border-2 border-primary/20 px-5 py-3 sm:py-2.5 rounded-xl shadow-lg flex items-center justify-center gap-2 transition-all hover:bg-secondary/90 hover:border-primary/30 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {isLoading ? (
             <>
@@ -147,7 +144,7 @@ export const NearbyRoutesCTA: React.FC = () => {
         <button
           onClick={handleFindNearby}
           disabled={isLoading}
-          className="flex-1 sm:flex-none bg-secondary text-primary px-5 py-3 sm:py-2.5 rounded-xl shadow-lg flex items-center justify-center gap-2 transition-all hover:bg-secondary/90 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="flex-1 sm:flex-none bg-secondary text-primary border-2 border-primary/20 px-5 py-3 sm:py-2.5 rounded-xl shadow-lg flex items-center justify-center gap-2 transition-all hover:bg-secondary/90 hover:border-primary/30 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {isLoading ? (
             <>
@@ -169,7 +166,7 @@ export const NearbyRoutesCTA: React.FC = () => {
             reset();
             openTripPlanner();
           }}
-          className="flex-1 sm:flex-none bg-secondary text-primary px-5 py-3 sm:py-2.5 rounded-xl shadow-lg flex items-center justify-center gap-2 transition-all hover:bg-secondary/90"
+          className="flex-1 sm:flex-none bg-secondary text-primary border-2 border-primary/20 px-5 py-3 sm:py-2.5 rounded-xl shadow-lg flex items-center justify-center gap-2 transition-all hover:bg-secondary/90 hover:border-primary/30"
         >
           <MdDirections className="text-xl sm:text-lg" />
           <span className="text-base sm:text-sm font-medium">Planificar viaje</span>
