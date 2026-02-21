@@ -99,7 +99,7 @@ export const NearbyRoutesCTA: React.FC = () => {
   };
 
   const showNearbyCTA = !pin && !(nearbyRoutes && nearbyRoutes.length > 0);
-  const showTripPlannerCTA = !pin && env.FEATURE_TRIP_PLANNER;
+  const showTripPlannerCTA = env.FEATURE_TRIP_PLANNER; // Siempre disponible
   const showGetDirectionsCTA = pin && env.FEATURE_TRIP_PLANNER;
 
   if (!showNearbyCTA && !showTripPlannerCTA && !showGetDirectionsCTA) return null;
