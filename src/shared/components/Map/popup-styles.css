@@ -36,3 +36,14 @@
 .dark-popup .maplibregl-popup-tip {
   border-top-color: rgba(31, 41, 55, 0.95);
 }
+
+/* Custom map popup (no default styles) */
+.map-popup .maplibregl-popup-content {
+  padding: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.map-popup .maplibregl-popup-tip {
+  display: none;
+}

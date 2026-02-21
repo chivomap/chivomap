@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
-import { BiBus, BiCurrentLocation } from 'react-icons/bi';
+import { BiBus, BiCurrentLocation, BiDirections } from 'react-icons/bi';
 import { MdDirections } from 'react-icons/md';
 import { useRutasStore } from '../../../store/rutasStore';
 import { useParadasStore } from '../../../store/paradasStore';
 import { useMapStore } from '../../../store/mapStore';
+import { usePinStore } from '../../../store/pinStore';
+import { usePlaceSearchStore } from '../../../store/placeSearchStore';
 import { useBottomSheet } from '../../../../hooks/useBottomSheet';
 import { useTripPlannerStore } from '../../../store/tripPlannerStore';
 import { useCurrentLocation } from '../../../../hooks/useGeolocation';
@@ -13,8 +15,10 @@ export const NearbyRoutesCTA: React.FC = () => {
   const { fetchNearbyRoutes, nearbyRoutes, clearSelectedRoute } = useRutasStore();
   const { fetchNearbyParadas } = useParadasStore();
   const { updateConfig } = useMapStore();
+  const { pin } = usePinStore();
+  const { selectedResult } = usePlaceSearchStore();
   const { openTripPlanner } = useBottomSheet();
-  const { reset } = useTripPlannerStore();
+  const { reset, setOrigin, setDestination } = useTripPlannerStore();
   const { getLocation } = useCurrentLocation();
   const [isLoading, setIsLoading] = useState(false);
 
@@ -53,16 +57,74 @@ export const NearbyRoutesCTA: React.FC = () => {
     }
   };
 
-  const showNearbyCTA = !(nearbyRoutes && nearbyRoutes.length > 0);
-  const showTripPlannerCTA = env.FEATURE_TRIP_PLANNER;
+  const handleGetDirections = async () => {
+    if (!pin) return;
+    
+    setIsLoading(true);
+    try {
+      const location = await getLocation();
+      setOrigin({ lat: location.lat, lng: location.lng, name: 'Tu ubicación' });
+      setDestination({ 
+        lat: pin.lat, 
+        lng: pin.lng, 
+        name: selectedResult?.name || 'Destino seleccionado' 
+      });
+      
+      // Abrir trip planner y esperar a que se monte
+      openTripPlanner();
+      
+      // Ejecutar búsqueda automáticamente
+      setTimeout(async () => {
+        try {
+          const { planTrip } = await import('../../../api/trip');
+          const plan = await planTrip({ 
+            origin: { lat: location.lat, lng: location.lng, name: 'Tu ubicación' },
+            destination: { lat: pin.lat, lng: pin.lng, name: selectedResult?.name || 'Destino seleccionado' }
+          });
+          const { setTripPlan, setSelectedOptionIndex } = useTripPlannerStore.getState();
+          setTripPlan(plan);
+          setSelectedOptionIndex(plan.options.length > 0 ? 0 : null);
+        } catch (error) {
+          console.error('Error planning trip:', error);
+        }
+      }, 100);
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Error obteniendo ubicación');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
-  if (!showNearbyCTA && !showTripPlannerCTA) return null;
+  const showNearbyCTA = !pin && !(nearbyRoutes && nearbyRoutes.length > 0);
+  const showTripPlannerCTA = !pin && env.FEATURE_TRIP_PLANNER;
+  const showGetDirectionsCTA = pin && env.FEATURE_TRIP_PLANNER;
+
+  if (!showNearbyCTA && !showTripPlannerCTA && !showGetDirectionsCTA) return null;
 
   return (
     <div
       className="fixed bottom-4 left-1/2 -translate-x-1/2 flex flex-col sm:flex-row gap-2"
       style={{ zIndex: 50 }}
     >
+      {showGetDirectionsCTA && (
+        <button
+          onClick={handleGetDirections}
+          disabled={isLoading}
+          className="bg-secondary text-primary px-5 py-2.5 rounded-xl shadow-lg flex items-center justify-center gap-2 transition-all hover:bg-secondary/90 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {isLoading ? (
+            <>
+              <BiCurrentLocation className="text-lg animate-spin" />
+              <span className="text-sm font-medium">Obteniendo ubicación...</span>
+            </>
+          ) : (
+            <>
+              <BiDirections className="text-lg" />
+              <span className="text-sm font-medium">Cómo llegar</span>
+            </>
+          )}
+        </button>
+      )}
       {showNearbyCTA && (
         <button
           onClick={handleFindNearby}
