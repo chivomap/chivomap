@@ -615,7 +615,7 @@ const TripPlanResults: React.FC = () => {
 
   return (
     <div className="flex flex-col h-full min-h-0">
-      <div className="flex-shrink-0 p-4 border-b border-white/10 bg-primary/95 backdrop-blur">
+      <div className="flex-shrink-0 p-4 border-b border-white/10">
         <div className="flex items-center justify-between mb-2">
           <h2 className="text-base sm:text-lg font-semibold text-white">Opciones de viaje</h2>
           <CloseButton onClick={handleClose} />
@@ -627,7 +627,7 @@ const TripPlanResults: React.FC = () => {
             <button
               onClick={handlePrevStep}
               disabled={!canGoPrev}
-              className="flex-1 flex items-center justify-center gap-1 px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors text-sm text-white"
+              className="flex-1 flex items-center justify-center gap-1 px-3 py-1.5 rounded-lg hover:bg-white/5 disabled:opacity-30 disabled:cursor-not-allowed transition-colors text-sm text-white"
             >
               <BiChevronLeft className="w-4 h-4" />
               Anterior
@@ -637,7 +637,7 @@ const TripPlanResults: React.FC = () => {
               className={`flex-1 px-3 py-1.5 rounded-lg transition-colors text-sm ${
                 focusedLegIndex === null 
                   ? 'bg-secondary text-primary font-medium' 
-                  : 'bg-white/5 hover:bg-white/10 text-white'
+                  : 'hover:bg-white/5 text-white'
               }`}
             >
               Ver todo
@@ -645,7 +645,7 @@ const TripPlanResults: React.FC = () => {
             <button
               onClick={handleNextStep}
               disabled={!canGoNext}
-              className="flex-1 flex items-center justify-center gap-1 px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors text-sm text-white"
+              className="flex-1 flex items-center justify-center gap-1 px-3 py-1.5 rounded-lg hover:bg-white/5 disabled:opacity-30 disabled:cursor-not-allowed transition-colors text-sm text-white"
             >
               Siguiente
               <BiChevronRight className="w-4 h-4" />
@@ -797,7 +797,7 @@ const TripPlanResults: React.FC = () => {
                               </>
                             ) : (
                               <div className="text-xs text-white/70">
-                                {isFirstWalk ? '🚶 Camina al inicio' : isLastWalk ? '🚶 Camina al destino' : '🚶 Transbordo'}
+                                {isFirstWalk ? 'Camina al inicio' : isLastWalk ? 'Camina al destino' : 'Transbordo'}
                                 <span className="text-white/50 ml-1.5">
                                   • {formatDistance(leg.distance_m)} • {formatDuration(leg.duration_m)}
                                 </span>
