@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { useBottomSheet } from '../../../../hooks/useBottomSheet';
 // import { useAnnotationStore } from '../../../store/annotationStore';
 import { useRutasStore } from '../../../store/rutasStore';
@@ -46,6 +46,9 @@ export const BottomSheet: React.FC = () => {
     setIsDragging(true);
     setDragStartY(e.touches[0].clientY);
     setDragY(0);
+    
+    // Prevenir que el mapa se mueva durante el drag
+    e.stopPropagation();
   }, []);
 
   const handleTouchMove = useCallback((e: React.TouchEvent) => {
@@ -53,6 +56,9 @@ export const BottomSheet: React.FC = () => {
     const currentY = e.touches[0].clientY;
     const diff = currentY - dragStartY;
     setDragY(diff);
+    
+    // Prevenir que el mapa se mueva durante el drag
+    e.stopPropagation();
   }, [isDragging, dragStartY]);
 
   const handleTouchEnd = useCallback(() => {
@@ -81,7 +87,7 @@ export const BottomSheet: React.FC = () => {
   }, [sheetState, setSheetState]);
 
   // Scroll inteligente: expandir drawer en vez de hacer scroll
-  const handleWheel = useCallback((e: React.WheelEvent) => {
+  const handleWheel = useCallback((e: WheelEvent) => {
     // Solo en mobile
     if (window.innerWidth >= 640) return;
     
@@ -108,7 +114,7 @@ export const BottomSheet: React.FC = () => {
   }, [sheetState, setSheetState]);
 
   // Touch scroll inteligente
-  const handleTouchScroll = useCallback((e: React.TouchEvent) => {
+  const handleTouchScroll = useCallback((e: TouchEvent) => {
     // Solo en mobile
     if (window.innerWidth >= 640) return;
     
@@ -137,6 +143,20 @@ export const BottomSheet: React.FC = () => {
     
     lastScrollTop.current = currentY;
   }, [sheetState, setSheetState]);
+
+  // Registrar event listeners con passive: false
+  useEffect(() => {
+    const content = contentRef.current;
+    if (!content) return;
+
+    content.addEventListener('wheel', handleWheel, { passive: false });
+    content.addEventListener('touchmove', handleTouchScroll, { passive: false });
+
+    return () => {
+      content.removeEventListener('wheel', handleWheel);
+      content.removeEventListener('touchmove', handleTouchScroll);
+    };
+  }, [handleWheel, handleTouchScroll]);
 
   if (!isOpen) return null;
 
@@ -167,8 +187,6 @@ export const BottomSheet: React.FC = () => {
           style={{
             overflowY: window.innerWidth >= 640 ? 'auto' : (sheetState === 'full' ? 'auto' : 'hidden')
           }}
-          onWheel={handleWheel}
-          onTouchMove={handleTouchScroll}
         >
           {activeTab === 'tripPlanner' && env.FEATURE_TRIP_PLANNER ? (
             <TripPlannerSheet />

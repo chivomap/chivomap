@@ -1,13 +1,25 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Marker } from 'react-map-gl/maplibre';
 import { useMap } from 'react-map-gl/maplibre';
 import { useParadasStore } from '../../store/paradasStore';
 import { useRutasStore } from '../../store/rutasStore';
+import { useMapFocus } from '../../../hooks/useMapFocus';
 
 export const ParadasLayer: React.FC = () => {
   const { current: map } = useMap();
   const { nearbyParadas, paradasByRuta, showParadasOnMap, selectedParada, setSelectedParada } = useParadasStore();
   const { selectedRouteDirection } = useRutasStore();
+  const { focusPoint } = useMapFocus();
+
+  // Centrar mapa cuando se selecciona una parada
+  useEffect(() => {
+    if (selectedParada) {
+      focusPoint(
+        { lat: selectedParada.latitud, lng: selectedParada.longitud },
+        { zoom: 16, sheetWillBeHalf: true }
+      );
+    }
+  }, [selectedParada, focusPoint]);
 
   // Obtener zoom actual
   const zoom = map?.getZoom() || 14;

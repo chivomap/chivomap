@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { BiCurrentLocation, BiMap, BiLoaderAlt, BiWalk } from 'react-icons/bi';
+import { BiCurrentLocation, BiMap, BiLoaderAlt, BiWalk, BiChevronLeft, BiChevronRight } from 'react-icons/bi';
 import { MdSwapVert } from 'react-icons/md';
 import { FaBus } from 'react-icons/fa';
 import { useTripPlannerStore } from '../../../../store/tripPlannerStore';
@@ -10,34 +10,6 @@ import { useBottomSheet } from '../../../../../hooks/useBottomSheet';
 import { useCurrentLocation } from '../../../../../hooks/useGeolocation';
 import { useMapFocus } from '../../../../../hooks/useMapFocus';
 import { CloseButton } from '../../../ui/CloseButton';
-
-const ExpandableText: React.FC<{ text: string; maxChars?: number; className?: string }> = ({
-  text,
-  maxChars = 72,
-  className = '',
-}) => {
-  const [expanded, setExpanded] = useState(false);
-  const isLong = text.length > maxChars;
-  const visible = expanded || !isLong ? text : `${text.slice(0, maxChars).trimEnd()}...`;
-
-  return (
-    <span className={className}>
-      {visible}{' '}
-      {isLong && (
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            setExpanded((prev) => !prev);
-          }}
-          className="text-secondary/90 hover:text-secondary underline decoration-secondary/40"
-        >
-          {expanded ? 'menos' : 'mas'}
-        </button>
-      )}
-    </span>
-  );
-};
 
 export const TripPlannerSheet: React.FC = () => {
   const {
@@ -125,13 +97,13 @@ export const TripPlannerSheet: React.FC = () => {
     
     // Si solo hay origen, enfocar punto
     if (origin && !destination) {
-      focusPoint(origin, { zoom: optimalViewport.zoom });
+      focusPoint(origin, { zoom: optimalViewport.zoom, sheetWillBeHalf: true });
       return;
     }
 
     // Si hay origen y destino, enfocar ambos puntos
     if (origin && destination) {
-      focusPoints([origin, destination], { maxZoom: optimalViewport.zoom });
+      focusPoints([origin, destination], { maxZoom: optimalViewport.zoom, sheetWillBeHalf: true });
     }
   }, [optimalViewport, origin, destination, focusPoint, focusPoints]);
 
@@ -613,13 +585,95 @@ const TripPlanResults: React.FC = () => {
     return colors[confidence as keyof typeof colors] || colors.low;
   };
 
+  const handlePrevStep = () => {
+    if (selectedOptionIndex === null) return;
+    const option = tripPlan.options[selectedOptionIndex];
+    if (!option) return;
+    
+    // Filtrar legs visibles (excluir transbordos < 50m)
+    const visibleLegs = option.legs.map((leg, idx) => ({ leg, idx })).filter(({ leg, idx }) => {
+      const isFirstWalk = idx === 0;
+      const isLastWalk = idx === option.legs.length - 1;
+      const isTransferWalk = leg.type === 'walk' && !isFirstWalk && !isLastWalk;
+      return !(isTransferWalk && leg.distance_m < 50);
+    });
+    
+    if (focusedLegIndex === null) {
+      setFocusedLegIndex(visibleLegs[visibleLegs.length - 1].idx);
+    } else {
+      const currentVisibleIdx = visibleLegs.findIndex(v => v.idx === focusedLegIndex);
+      if (currentVisibleIdx > 0) {
+        setFocusedLegIndex(visibleLegs[currentVisibleIdx - 1].idx);
+      }
+    }
+  };
+
+  const handleNextStep = () => {
+    if (selectedOptionIndex === null) return;
+    const option = tripPlan.options[selectedOptionIndex];
+    if (!option) return;
+    
+    // Filtrar legs visibles (excluir transbordos < 50m)
+    const visibleLegs = option.legs.map((leg, idx) => ({ leg, idx })).filter(({ leg, idx }) => {
+      const isFirstWalk = idx === 0;
+      const isLastWalk = idx === option.legs.length - 1;
+      const isTransferWalk = leg.type === 'walk' && !isFirstWalk && !isLastWalk;
+      return !(isTransferWalk && leg.distance_m < 50);
+    });
+    
+    if (focusedLegIndex === null) {
+      setFocusedLegIndex(visibleLegs[0].idx);
+    } else {
+      const currentVisibleIdx = visibleLegs.findIndex(v => v.idx === focusedLegIndex);
+      if (currentVisibleIdx < visibleLegs.length - 1) {
+        setFocusedLegIndex(visibleLegs[currentVisibleIdx + 1].idx);
+      }
+    }
+  };
+
+  const canGoPrev = selectedOptionIndex !== null && (focusedLegIndex === null || focusedLegIndex > 0);
+  const canGoNext = selectedOptionIndex !== null && tripPlan.options[selectedOptionIndex] && 
+    (focusedLegIndex === null || focusedLegIndex < tripPlan.options[selectedOptionIndex].legs.length - 1);
+
   return (
     <div className="flex flex-col h-full min-h-0">
-      <div className="flex-shrink-0 p-4 border-b border-white/10 bg-primary/95 backdrop-blur">
-        <div className="flex items-center justify-between">
+      <div className="flex-shrink-0 p-4 border-b border-white/10">
+        <div className="flex items-center justify-between mb-2">
           <h2 className="text-base sm:text-lg font-semibold text-white">Opciones de viaje</h2>
           <CloseButton onClick={handleClose} />
         </div>
+        
+        {/* Navegación de pasos */}
+        {selectedOptionIndex !== null && (
+          <div className="flex items-center gap-2 w-full">
+            <button
+              onClick={handlePrevStep}
+              disabled={!canGoPrev}
+              className="flex-1 flex items-center justify-center gap-1 px-3 py-1.5 rounded-lg hover:bg-white/5 disabled:opacity-30 disabled:cursor-not-allowed transition-colors text-sm text-white"
+            >
+              <BiChevronLeft className="w-4 h-4" />
+              Anterior
+            </button>
+            <button
+              onClick={() => setFocusedLegIndex(null)}
+              className={`flex-1 px-3 py-1.5 rounded-lg transition-colors text-sm ${
+                focusedLegIndex === null 
+                  ? 'bg-secondary text-primary font-medium' 
+                  : 'hover:bg-white/5 text-white'
+              }`}
+            >
+              Ver todo
+            </button>
+            <button
+              onClick={handleNextStep}
+              disabled={!canGoNext}
+              className="flex-1 flex items-center justify-center gap-1 px-3 py-1.5 rounded-lg hover:bg-white/5 disabled:opacity-30 disabled:cursor-not-allowed transition-colors text-sm text-white"
+            >
+              Siguiente
+              <BiChevronRight className="w-4 h-4" />
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Lista scrolleable */}
@@ -657,8 +711,9 @@ const TripPlanResults: React.FC = () => {
                 </span>
               </div>
 
-              {/* Resumen de rutas */}
-              <div className="flex flex-wrap items-center gap-1.5 mb-1">
+              {/* Resumen de rutas - solo mostrar si no hay leg enfocado */}
+              {focusedLegIndex === null && (
+                <div className="flex flex-wrap items-center gap-1.5 mb-1">
                 {option.legs
                   .map((leg, legIdx) => ({ ...leg, legIdx }))
                   .filter(leg => leg.type === 'bus')
@@ -702,35 +757,20 @@ const TripPlanResults: React.FC = () => {
                     • {option.total_transfers} transbordo{option.total_transfers > 1 ? 's' : ''}
                   </span>
                 )}
-              </div>
+                </div>
+              )}
 
               {/* Detalles expandibles */}
               {selectedOptionIndex === idx && (
-                <div className="mt-2 pt-2 border-t border-white/10 space-y-2 animate-in fade-in slide-in-from-top-2 duration-200">
+                <div className="mt-2 pt-2 border-t border-white/10 space-y-1 animate-in fade-in slide-in-from-top-2 duration-200">
                   {(() => {
-                    let busCounter = 0;
-                    let transferCounter = 0;
-
                     return option.legs.map((leg, legIdx) => {
-                      const isBus = leg.type === 'bus';
-                      const isTransferWalk = leg.type === 'walk'
-                        && legIdx > 0
-                        && legIdx < option.legs.length - 1
-                        && option.legs[legIdx - 1].type === 'bus'
-                        && option.legs[legIdx + 1].type === 'bus';
+                      const isFirstWalk = legIdx === 0;
+                      const isLastWalk = legIdx === option.legs.length - 1;
+                      const isTransferWalk = leg.type === 'walk' && !isFirstWalk && !isLastWalk;
 
-                      if (isBus) busCounter += 1;
-                      if (isTransferWalk) transferCounter += 1;
-
-                      const label = isBus
-                        ? `Bus ${busCounter}`
-                        : isTransferWalk
-                          ? `Transbordo ${transferCounter}`
-                          : legIdx === 0
-                            ? 'Salida'
-                            : legIdx === option.legs.length - 1
-                              ? 'Llegada'
-                              : 'Caminar';
+                      // Ocultar transbordos muy cortos
+                      if (isTransferWalk && leg.distance_m < 50) return null;
 
                       return (
                         <button
@@ -739,76 +779,58 @@ const TripPlanResults: React.FC = () => {
                             e.stopPropagation();
                             setFocusedLegIndex(legIdx);
                           }}
-                          className={`w-full flex gap-2 text-left rounded-lg p-1.5 transition-colors ${
-                            focusedLegIndex === legIdx ? 'bg-white/10 border border-secondary/30' : 'hover:bg-white/5'
+                          className={`w-full flex gap-2.5 text-left rounded-lg p-2 transition-colors ${
+                            focusedLegIndex === legIdx ? 'bg-secondary/10 border border-secondary/40' : 'hover:bg-white/5'
                           }`}
                         >
-                      {/* Icono */}
-                          <div className="flex-shrink-0 relative">
-                            <div className="absolute -top-1 -left-1 w-5 h-5 rounded-full bg-secondary text-primary text-[10px] font-bold flex items-center justify-center border border-white/30">
-                              {legIdx + 1}
-                            </div>
-                            <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center">
+                          {/* Icono y línea conectora */}
+                          <div className="flex-shrink-0 flex flex-col items-center">
+                            <div className={`w-7 h-7 rounded-full flex items-center justify-center ${
+                              leg.type === 'bus' ? 'bg-secondary/20' : 'bg-white/10'
+                            }`}>
                               {leg.type === 'walk' ? (
-                                <BiWalk className="w-5 h-5 text-white/80" />
+                                <BiWalk className="w-4 h-4 text-white/70" />
                               ) : (
-                                <FaBus className="w-4 h-4 text-secondary" />
+                                <FaBus className="w-3.5 h-3.5 text-secondary" />
                               )}
                             </div>
+                            {legIdx < option.legs.length - 1 && (
+                              <div className="w-0.5 h-3 bg-white/10 mt-0.5" />
+                            )}
                           </div>
 
-                      {/* Contenido */}
-                      <div className="flex-1 min-w-0">
-                        <div className="text-[10px] uppercase tracking-wide text-white/40">
-                          {label}
-                        </div>
-                        <div className="flex items-center gap-2">
-                        {leg.type === 'bus' && leg.route_code && (
-                          <span className="px-2 py-0.5 bg-secondary text-white text-xs font-bold rounded">
-                            {leg.route_name || leg.route_code}
-                          </span>
-                        )}
-                        {leg.type === 'bus' && leg.direction && (
-                          <span className="px-2 py-0.5 bg-white/10 text-white/70 text-[10px] uppercase rounded">
-                            {leg.direction === 'IDA' ? 'Ida' : 'Regreso'}
-                          </span>
-                        )}
-                        <span className="font-medium text-white text-xs">
-                          {leg.type === 'walk' ? 'Caminar' : leg.route_name || 'Bus'}
-                        </span>
-                      </div>
-                      <div className="text-[11px] text-white/60">
-                        {formatDistance(leg.distance_m)} • {formatDuration(leg.duration_m)}
-                      </div>
-                      {leg.type === 'bus' && (leg.from_stop || leg.to_stop) && (
-                        <div className="text-xs text-white/40 space-y-1">
-                          <div>
-                            <span className="text-white/50">Sube:</span>{' '}
-                            <ExpandableText
-                              text={leg.from_stop?.nombre || 'Parada cercana'}
-                              maxChars={58}
-                            />
+                          {/* Contenido */}
+                          <div className="flex-1 min-w-0 pt-0.5">
+                            {leg.type === 'bus' ? (
+                              <>
+                                <div className="flex items-center gap-2 mb-0.5">
+                                  <span className="px-2 py-0.5 bg-secondary text-white text-xs font-bold rounded">
+                                    {leg.route_name || leg.route_code}
+                                  </span>
+                                  <span className="text-xs text-white/60">
+                                    {formatDuration(leg.duration_m)}
+                                  </span>
+                                </div>
+                                {leg.from_stop && (
+                                  <div className="text-xs text-white/50 truncate">
+                                    {leg.from_stop.nombre.length > 35 
+                                      ? leg.from_stop.nombre.substring(0, 35) + '...' 
+                                      : leg.from_stop.nombre}
+                                  </div>
+                                )}
+                              </>
+                            ) : (
+                              <div className="text-xs text-white/70">
+                                {isFirstWalk ? 'Camina al inicio' : isLastWalk ? 'Camina al destino' : 'Transbordo'}
+                                <span className="text-white/50 ml-1.5">
+                                  • {formatDistance(leg.distance_m)} • {formatDuration(leg.duration_m)}
+                                </span>
+                              </div>
+                            )}
                           </div>
-                          {leg.to_stop?.nombre && (
-                            <div>
-                              <span className="text-white/50">Baja:</span>{' '}
-                              <ExpandableText
-                                text={leg.to_stop.nombre}
-                                maxChars={58}
-                              />
-                            </div>
-                          )}
-                        </div>
-                      )}
-                      {leg.instructions && (
-                        <div className="text-[11px] text-white/40 leading-relaxed">
-                          <ExpandableText text={leg.instructions} maxChars={90} />
-                        </div>
-                      )}
-                      </div>
-                    </button>
+                        </button>
                       );
-                    });
+                    }).filter(Boolean);
                   })()}
                 </div>
               )}

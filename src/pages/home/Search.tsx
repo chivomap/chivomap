@@ -16,6 +16,7 @@ import { RouteCodeBadge } from '../../shared/components/rutas/RouteCodeBadge';
 import { searchPlaces } from '../../shared/api/search';
 import type { SearchResult } from '../../shared/types/search';
 import { LngLat } from 'maplibre-gl';
+import { useMapFocus } from '../../hooks/useMapFocus';
 
 export const Search: React.FC = () => {
   const { inputValue, showResults, setInputValue, setShowResults } = useSearchStore();
@@ -23,12 +24,13 @@ export const Search: React.FC = () => {
   const [placeResults, setPlaceResults] = useState<SearchResult[]>([]);
   const [isSearchingPlaces, setIsSearchingPlaces] = useState(false);
   const debounceTimer = useRef<ReturnType<typeof setTimeout>>();
+  const { focusPoint } = useMapFocus();
 
   const searchContainerRef = useRef<HTMLFormElement>(null);
 
   const { layoutStates } = useLayoutStore();
   const { search, department } = layoutStates;
-  const { updateGeojson, setSelectedInfo, setCurrentLevel, setParentInfo, selectedInfo, config, updateConfig } = useMapStore();
+  const { updateGeojson, setSelectedInfo, setCurrentLevel, setParentInfo, selectedInfo, config } = useMapStore();
   const { setPin } = usePinStore();
 
   const { selectRoute, allRoutes, fetchAllRoutes, isLoading: isRutasLoading, clearSelectedRoute } = useRutasStore();
@@ -317,10 +319,7 @@ export const Search: React.FC = () => {
                           <button
                             key={place.id}
                             onClick={() => {
-                              updateConfig({
-                                center: { lat: place.lat, lng: place.lng },
-                                zoom: 16,
-                              });
+                              focusPoint({ lat: place.lat, lng: place.lng }, { zoom: 16, sheetWillBeHalf: false });
                               setPin(new LngLat(place.lng, place.lat));
                               setSelectedResult(place);
                               setShowResults(false);

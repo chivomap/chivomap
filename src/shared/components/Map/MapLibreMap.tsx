@@ -63,13 +63,17 @@ export const MapLibreMap: React.FC = () => {
 
   // Zoom to route when selected
   useEffect(() => {
-    if (selectedRoute && mapRef.current) {
+    if (!selectedRoute || !mapRef.current) return;
+    
+    // Delay para que el drawer se abra primero
+    const DRAWER_TRANSITION_MS = 350;
+    const timer = setTimeout(() => {
       try {
-        const bounds = new LngLatBounds();
         const coords = selectedRoute.geometry.coordinates;
+        const bounds = new LngLatBounds();
 
         const extendBounds = (coord: any) => {
-          if (Array.isArray(coord) && coord.length >= 2) {
+          if (Array.isArray(coord) && coord.length >= 2 && typeof coord[0] === 'number') {
             bounds.extend([coord[0], coord[1]]);
           }
         };
@@ -89,16 +93,24 @@ export const MapLibreMap: React.FC = () => {
           }
 
           if (!bounds.isEmpty()) {
-            mapRef.current.fitBounds(bounds, {
-              padding: 50,
-              duration: 1000 // Smooth animation
+            const isMobile = window.innerWidth < 640;
+            const padding = isMobile 
+              ? { top: 80, bottom: window.innerHeight * 0.52, left: 20, right: 20 }
+              : { top: 80, bottom: 80, left: 400, right: 80 };
+            
+            mapRef.current?.fitBounds(bounds, {
+              padding,
+              duration: 1000,
+              maxZoom: 14,
             });
           }
         }
       } catch (error) {
-        console.error("Error fitting bounds to route:", error);
+        console.error("Error focusing route:", error);
       }
-    }
+    }, DRAWER_TRANSITION_MS);
+    
+    return () => clearTimeout(timer);
   }, [selectedRoute]);
 
   useEffect(() => {
@@ -170,11 +182,12 @@ export const MapLibreMap: React.FC = () => {
       const isMobile = window.innerWidth < 640;
       mapRef.current.fitBounds(bounds, {
         padding: isMobile
-          ? { top: 140, bottom: 180, left: 40, right: 40 }
+          ? { top: 140, bottom: window.innerHeight * 0.48, left: 40, right: 40 }
           : { top: 120, bottom: 120, left: 60, right: 60 },
-        duration: 1200,
-        pitch: isMobile ? 30 : 45,
-        bearing: -15,
+        duration: 800, // Más rápido (antes 1200ms)
+        maxZoom: focusLeg ? 15 : 14, // Limitar zoom cuando enfoca un paso
+        pitch: 0, // Sin inclinación
+        bearing: 0, // Sin rotación
       });
     }
   }, [tripPlan, selectedOptionIndex, focusedLegIndex]);
@@ -214,7 +227,7 @@ export const MapLibreMap: React.FC = () => {
       points.forEach((point: { lat: number; lng: number }) => {
         bounds.extend([point.lng, point.lat]);
       });
-
+      
       mapRef.current.fitBounds(bounds, {
         padding,
         duration,
