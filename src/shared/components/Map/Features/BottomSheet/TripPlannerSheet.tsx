@@ -115,61 +115,24 @@ export const TripPlannerSheet: React.FC = () => {
     const autoFillOrigin = async () => {
       try {
         const location = await getLocation();
-        
-        // Verificar que el usuario no haya seleccionado un origen mientras esperábamos
         if (origin) return;
-        
-        // Intentar reverse geocoding para obtener dirección legible
-        try {
-          const geocodeResult = await reverseGeocode(location.lat, location.lng);
-          
-          // Verificar nuevamente antes de aplicar el resultado
-          if (origin) return;
-          
-          if (geocodeResult.results && geocodeResult.results.length > 0) {
-            const place = geocodeResult.results[0];
-            // Usar display_name si está disponible, sino construir desde address
-            let locationName = place.display_name || place.name;
-            
-            if (!locationName && place.address) {
-              const parts = [
-                place.address.street,
-                place.address.city,
-                place.address.state
-              ].filter(Boolean);
-              locationName = parts.length > 0 ? parts.join(', ') : 'Mi ubicación';
-            }
-            
-            setOrigin({
-              lat: location.lat,
-              lng: location.lng,
-              name: locationName || 'Mi ubicación'
-            });
-          } else {
-            // Fallback a coordenadas
-            setOrigin({
-              lat: location.lat,
-              lng: location.lng,
-              name: 'Mi ubicación'
-            });
-          }
-        } catch (geocodeError) {
-          console.warn('Reverse geocoding failed, using coordinates:', geocodeError);
-          
-          // Verificar antes del fallback
-          if (origin) return;
-          
-          // Fallback a coordenadas
-          setOrigin({
-            lat: location.lat,
-            lng: location.lng,
-            name: 'Mi ubicación'
-          });
-        }
-        
+
+        setOrigin({ lat: location.lat, lng: location.lng, name: 'Mi ubicación' });
         hasAutoFilledOrigin.current = true;
-      } catch (error) {
-        // Si no hay ubicación disponible, no hacer nada (silencioso)
+
+        // Reverse geocoding en background
+        try {
+          const result = await reverseGeocode(location.lat, location.lng) as any;
+          const place = result.results?.[0] ?? result;
+          const name = place.display_name || place.name;
+          if (name) {
+            setOrigin({ lat: location.lat, lng: location.lng, name });
+          }
+        } catch {
+          // Mantener "Mi ubicación"
+        }
+      } catch {
+        // Sin ubicación disponible, silencioso
       }
     };
 
@@ -258,44 +221,25 @@ export const TripPlannerSheet: React.FC = () => {
   };
 
   const getCurrentLocation = async (isOrigin: boolean) => {
+    const setter = isOrigin ? setOrigin : setDestination;
     try {
       const location = await getLocation();
-      
-      // Intentar reverse geocoding para obtener dirección legible
-      let locationName = 'Mi ubicación';
+
+      // Poner "Mi ubicación" inmediatamente
+      setter({ lat: location.lat, lng: location.lng, name: 'Mi ubicación' });
+
+      // Reverse geocoding en background
       try {
-        const geocodeResult = await reverseGeocode(location.lat, location.lng);
-        if (geocodeResult.results && geocodeResult.results.length > 0) {
-          const place = geocodeResult.results[0];
-          // Usar display_name si está disponible, sino construir desde address
-          locationName = place.display_name || place.name;
-          
-          if (!locationName && place.address) {
-            const parts = [
-              place.address.street,
-              place.address.city,
-              place.address.state
-            ].filter(Boolean);
-            locationName = parts.length > 0 ? parts.join(', ') : 'Mi ubicación';
-          }
+        const result = await reverseGeocode(location.lat, location.lng) as any;
+        const place = result.results?.[0] ?? result;
+        const name = place.display_name || place.name;
+        if (name) {
+          setter({ lat: location.lat, lng: location.lng, name });
         }
-      } catch (geocodeError) {
-        console.warn('Reverse geocoding failed:', geocodeError);
-      }
-      
-      const locationData = {
-        lat: location.lat,
-        lng: location.lng,
-        name: locationName || 'Mi ubicación'
-      };
-      
-      if (isOrigin) {
-        setOrigin(locationData);
-      } else {
-        setDestination(locationData);
+      } catch {
+        // Mantener "Mi ubicación" como fallback
       }
     } catch (error) {
-      // Error ya manejado por el hook
       console.error('Error getting location:', error);
     }
   };
@@ -383,7 +327,10 @@ export const TripPlannerSheet: React.FC = () => {
                 <BiCurrentLocation className="w-5 h-5 text-white/60" />
               </button>
               <button
-                onClick={() => setIsSelectingOrigin(true)}
+                onClick={() => {
+                  setIsSelectingOrigin(true);
+                  setSheetState('peek');
+                }}
                 className="p-1 hover:bg-white/10 rounded transition-colors"
                 title="Seleccionar en mapa"
               >
@@ -420,7 +367,10 @@ export const TripPlannerSheet: React.FC = () => {
                 <BiCurrentLocation className="w-5 h-5 text-white/60" />
               </button>
               <button
-                onClick={() => setIsSelectingDestination(true)}
+                onClick={() => {
+                  setIsSelectingDestination(true);
+                  setSheetState('peek');
+                }}
                 className="p-1 hover:bg-white/10 rounded transition-colors"
                 title="Seleccionar en mapa"
               >
