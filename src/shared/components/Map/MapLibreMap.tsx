@@ -288,37 +288,15 @@ export const MapLibreMap: React.FC = () => {
     }
   }, [showNearbyOnMap, nearbyRoutes]);
 
-  // RAF throttle para updateConfig - actualizar a 60fps máximo
-  const rafIdRef = useRef<number | null>(null);
-  const pendingUpdateRef = useRef<{ center: { lat: number; lng: number }; zoom: number } | null>(null);
-  
-  const handleViewStateChange = useCallback((evt: ViewStateChangeEvent) => {
-    // Limpiar overlapping routes cuando el usuario arrastra el mapa
-    setOverlappingRoutes(null);
-    
-    // Guardar el update pendiente
-    pendingUpdateRef.current = {
+  // Solo sincronizar con el store al final del movimiento (para persistencia)
+  const handleMoveEnd = useCallback((evt: ViewStateChangeEvent) => {
+    updateConfig({
       center: { lat: evt.viewState.latitude, lng: evt.viewState.longitude },
       zoom: evt.viewState.zoom
-    };
-    
-    // Si ya hay un RAF pendiente, no crear otro
-    if (rafIdRef.current !== null) return;
-    
-    // Usar RAF para batch updates a 60fps
-    rafIdRef.current = requestAnimationFrame(() => {
-      if (pendingUpdateRef.current) {
-        updateConfig(pendingUpdateRef.current);
-        pendingUpdateRef.current = null;
-      }
-      rafIdRef.current = null;
     });
-  }, [updateConfig, setOverlappingRoutes]);
+  }, [updateConfig]);
 
   const handleMapClick = useCallback((event: any) => {
-    // Limpiar overlapping routes cuando se hace click en el mapa
-    setOverlappingRoutes(null);
-
     const { features } = event;
     
     // Check if clicked on a nearby route (hitbox or line)
@@ -389,15 +367,17 @@ export const MapLibreMap: React.FC = () => {
     <div className="w-screen h-screen fixed top-0 left-0">
       <Map
         ref={mapRef}
-        longitude={center.lng}
-        latitude={center.lat}
-        zoom={zoom}
+        initialViewState={{
+          longitude: center.lng,
+          latitude: center.lat,
+          zoom: zoom
+        }}
         minZoom={env.MAP_MIN_ZOOM}
         maxZoom={18}
         style={{ width: '100%', height: '100%' }}
         mapStyle={mapStyle}
         onLoad={handleMapLoad}
-        onMove={handleViewStateChange}
+        onMoveEnd={handleMoveEnd}
         onClick={(event) => {
           // Check for nearby routes click
           if (event.features && event.features.length > 0) {

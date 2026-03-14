@@ -6,6 +6,7 @@ import { useTripPlannerStore } from '../../../../store/tripPlannerStore';
 import { searchPlaces, reverseGeocode } from '../../../../api/search';
 import { planTrip } from '../../../../api/trip';
 import { useMapStore } from '../../../../store/mapStore';
+import { useBottomSheetStore } from '../../../../store/bottomSheetStore';
 import { useBottomSheet } from '../../../../../hooks/useBottomSheet';
 import { useCurrentLocation } from '../../../../../hooks/useGeolocation';
 import { useMapFocus } from '../../../../../hooks/useMapFocus';
@@ -299,9 +300,11 @@ export const TripPlannerSheet: React.FC = () => {
     }
   };
 
+  const { setSheetState } = useBottomSheetStore();
+
   const handlePlanTrip = async () => {
     if (!origin || !destination) return;
-    
+
     setIsPlanning(true);
     setPlanError(null);
     try {
@@ -309,6 +312,10 @@ export const TripPlannerSheet: React.FC = () => {
       setTripPlan(plan);
       setSelectedOptionIndex(plan.options.length > 0 ? 0 : null);
       setFocusedLegIndex(null);
+      // Colapsar el drawer para que el usuario vea la ruta en el mapa
+      if (plan.options.length > 0) {
+        setSheetState('peek');
+      }
     } catch (error) {
       setPlanError('No se pudo planificar el viaje. Intenta de nuevo.');
       console.error('Error planning trip:', error);

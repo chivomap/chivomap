@@ -29,6 +29,7 @@ export const BottomSheet: React.FC = () => {
   const contentRef = useRef<HTMLDivElement>(null);
   const lastScrollTop = useRef(0);
 
+
   const getSheetHeight = useCallback(() => {
     if (window.innerWidth >= 640) return '60vh'; // Desktop: altura fija
     switch (sheetState) {
@@ -40,14 +41,12 @@ export const BottomSheet: React.FC = () => {
   }, [sheetState]);
 
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
-    // Limpiar overlapping routes cuando el usuario interactúa con el drawer
     useRutasStore.getState().setOverlappingRoutes(null);
-    
+
     setIsDragging(true);
     setDragStartY(e.touches[0].clientY);
     setDragY(0);
-    
-    // Prevenir que el mapa se mueva durante el drag
+
     e.stopPropagation();
   }, []);
 

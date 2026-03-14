@@ -7,24 +7,22 @@ import { useAnnotationStore } from '../shared/store/annotationStore';
 import { useTripPlannerStore } from '../shared/store/tripPlannerStore';
 import { env } from '../shared/config/env';
 
-type ContentType = 'route' | 'nearbyRoutes' | 'geoInfo' | 'annotations' | 'tripPlanner' | 'none';
+type ContentType = 'route' | 'parada' | 'nearbyRoutes' | 'geoInfo' | 'annotations' | 'tripPlanner' | 'none';
 
 export const useBottomSheet = () => {
   const { sheetState, setSheetState, setActiveTab, activeTab } = useBottomSheetStore();
   const { selectedRoute, nearbyRoutes, clearSelectedRoute, clearNearbyRoutes } = useRutasStore();
   const { selectedInfo, setSelectedInfo } = useMapStore();
   const { annotations } = useAnnotationStore();
-  
-  // Prevenir auto-ajuste si usuario modificó manualmente
-  const userAdjustedRef = useRef(false);
+  const selectedParada = useParadasStore(state => state.selectedParada);
+
   const prevContentTypeRef = useRef<ContentType>('none');
 
-  // Determinar tipo de contenido actual con prioridad clara
+  // Determinar tipo de contenido actual (misma prioridad que el renderizado del BottomSheet)
   const getContentType = (): ContentType => {
-    // Prioridad: tripPlanner > ruta individual > rutas cercanas > info geo > anotaciones
     if (activeTab === 'tripPlanner' && env.FEATURE_TRIP_PLANNER) return 'tripPlanner';
+    if (selectedParada) return 'parada';
     if (selectedRoute) return 'route';
-    // Mostrar nearbyRoutes si hay searchLocation (aunque esté vacío)
     const { searchLocation } = useRutasStore.getState();
     if (searchLocation || (nearbyRoutes && nearbyRoutes.length > 0)) return 'nearbyRoutes';
     if (selectedInfo) return 'geoInfo';
@@ -41,46 +39,24 @@ export const useBottomSheet = () => {
     }
   }, [activeTab, setActiveTab]);
 
-  // Estado inicial inteligente según contenido
-  const getInitialState = (type: ContentType) => {
-    switch (type) {
-      case 'tripPlanner': return 'half';
-      case 'route': return 'half';
-      case 'nearbyRoutes': return 'half';
-      case 'geoInfo': return 'peek';
-      case 'annotations': return 'half';
-      default: return 'peek';
-    }
+  // Estado al mostrar nuevo contenido: half por defecto (ver detalle)
+  const getInitialState = (type: ContentType): 'peek' | 'half' | 'full' => {
+    if (type === 'tripPlanner') return 'full';
+    if (type === 'geoInfo') return 'peek';
+    return 'half';
   };
 
-  // Solo auto-ajustar cuando cambia el TIPO de contenido, no cuando usuario ajusta
+  // Auto-ajustar solo cuando cambia el TIPO de contenido
+  // Si el contentType no cambia (ej: elegir parada dentro de una ruta), se mantiene el estado actual
   useEffect(() => {
-    const prevType = prevContentTypeRef.current;
-    
-    // Si cambió el tipo de contenido (no solo abrió/cerró)
-    if (prevType !== contentType && contentType !== 'none') {
-      // Solo auto-ajustar si usuario no ha tocado el estado manualmente
-      // Y solo si NO es un cambio dentro del mismo contexto (nearbyRoutes -> route)
-      const isSameContext = (prevType === 'nearbyRoutes' && contentType === 'route') ||
-                            (prevType === 'route' && contentType === 'nearbyRoutes');
-      
-      if (!userAdjustedRef.current && !isSameContext) {
-        const initialState = getInitialState(contentType);
-        setSheetState(initialState);
-      }
-      // Resetear flag cuando cambia el contenido (excepto en mismo contexto)
-      if (!isSameContext) {
-        userAdjustedRef.current = false;
-      }
-    }
-    
-    // Si se cerró todo, resetear
+    if (prevContentTypeRef.current === contentType) return;
+    prevContentTypeRef.current = contentType;
+
     if (contentType === 'none') {
       setSheetState('peek');
-      userAdjustedRef.current = false;
+    } else {
+      setSheetState(getInitialState(contentType));
     }
-    
-    prevContentTypeRef.current = contentType;
   }, [contentType, setSheetState]);
 
   // Cerrar solo el contenido actual (inteligente)
@@ -92,12 +68,9 @@ export const useBottomSheet = () => {
         setSheetState('peek');
         setActiveTab('info');
         break;
+      case 'parada':
       case 'route':
-        // Solo cerrar el drawer, NO limpiar la ruta
-        setSheetState('peek');
-        break;
       case 'nearbyRoutes':
-        // Solo cerrar el drawer, NO limpiar las rutas
         setSheetState('peek');
         break;
       case 'geoInfo':
@@ -105,7 +78,6 @@ export const useBottomSheet = () => {
         useMapStore.getState().updateGeojson(null);
         break;
       case 'annotations':
-        // No limpiar anotaciones, solo cambiar tab
         setActiveTab('info');
         break;
     }
@@ -120,32 +92,22 @@ export const useBottomSheet = () => {
     useMapStore.getState().setCurrentLevel('departamento');
     useMapStore.getState().setParentInfo(null);
     useMapStore.getState().setDepartamentoGeojson(null);
-    
+
     setSheetState('peek');
     setActiveTab('info');
-    userAdjustedRef.current = false;
-  };
-
-  // Cuando usuario ajusta manualmente, marcar flag
-  const setSheetStateManual = (state: 'peek' | 'half' | 'full') => {
-    userAdjustedRef.current = true;
-    setSheetState(state);
   };
 
   // Abrir con contenido específico
   const openRoute = (codigo: string) => {
     useRutasStore.getState().selectRoute(codigo);
     setActiveTab('info');
-    // No forzar estado, dejar que useEffect lo maneje
   };
 
   const openNearbyRoutes = (lat: number, lng: number, radius?: number) => {
-    // Limpiar ruta seleccionada para mostrar el listado
     clearSelectedRoute();
     useRutasStore.getState().fetchNearbyRoutes(lat, lng, radius);
     useParadasStore.getState().fetchNearbyParadas(lat, lng, radius);
     setActiveTab('info');
-    // No forzar estado, dejar que useEffect lo maneje
   };
 
   const openAnnotations = () => {
@@ -157,31 +119,25 @@ export const useBottomSheet = () => {
 
   const openTripPlanner = () => {
     if (!env.FEATURE_TRIP_PLANNER) return;
-    // Limpiar otros contenidos
     clearSelectedRoute();
     clearNearbyRoutes();
     setSelectedInfo(null);
-    
+
     useTripPlannerStore.getState().setIsSelectingOrigin(false);
     useTripPlannerStore.getState().setIsSelectingDestination(false);
 
-    // Abrir el sheet
-    setSheetState('half');
     setActiveTab('tripPlanner');
   };
 
   return {
-    // Estado
     isOpen,
     sheetState,
     contentType,
-    
-    // Acciones
+
     closeContent,
     closeAll,
-    setSheetState: setSheetStateManual,
-    
-    // Abrir con contenido
+    setSheetState,
+
     openRoute,
     openNearbyRoutes,
     openAnnotations,
