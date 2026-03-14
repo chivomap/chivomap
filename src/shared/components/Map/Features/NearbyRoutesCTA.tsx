@@ -108,23 +108,17 @@ export const NearbyRoutesCTA: React.FC = () => {
   // Determinar botón primario según contexto
   const primaryAction = showGetDirections ? 'directions' : showNearby ? 'nearby' : 'planner';
   
-  // Contar botones secundarios
-  const secondaryCount = [
-    primaryAction !== 'nearby' && showNearby,
-    primaryAction !== 'planner' && showTripPlanner
-  ].filter(Boolean).length;
-
   return (
     <div
-      className="fixed bottom-4 left-4 right-4 sm:left-1/2 sm:right-auto sm:-translate-x-1/2 flex gap-2"
+      className="fixed bottom-4 left-4 right-4 sm:left-1/2 sm:right-auto sm:-translate-x-1/2 flex flex-row gap-2"
       style={{ zIndex: 50 }}
     >
-      {/* Botón primario - flex-1 para ocupar espacio disponible */}
+      {/* Botón primario - estilo CTA grande */}
       {primaryAction === 'directions' && (
         <button
           onClick={handleGetDirections}
           disabled={isLoading}
-          className="flex-1 sm:flex-none bg-secondary text-primary border-2 border-primary/20 px-5 py-3 sm:py-2.5 rounded-xl shadow-lg flex items-center justify-center gap-2 transition-all hover:bg-secondary/90 hover:border-primary/30 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="flex-1 min-w-0 h-12 sm:h-11 bg-secondary text-primary border-2 border-primary/20 px-5 rounded-xl shadow-lg flex items-center justify-center gap-2 transition-all hover:bg-secondary/90 hover:border-primary/30 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {isLoading ? (
             <>
@@ -144,7 +138,7 @@ export const NearbyRoutesCTA: React.FC = () => {
         <button
           onClick={handleFindNearby}
           disabled={isLoading}
-          className="flex-1 sm:flex-none bg-secondary text-primary border-2 border-primary/20 px-5 py-3 sm:py-2.5 rounded-xl shadow-lg flex items-center justify-center gap-2 transition-all hover:bg-secondary/90 hover:border-primary/30 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="flex-1 min-w-0 h-12 sm:h-11 bg-secondary text-primary border-2 border-primary/20 px-5 rounded-xl shadow-lg flex items-center justify-center gap-2 transition-all hover:bg-secondary/90 hover:border-primary/30 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {isLoading ? (
             <>
@@ -154,7 +148,7 @@ export const NearbyRoutesCTA: React.FC = () => {
           ) : (
             <>
               <BiBus className="text-xl sm:text-lg" />
-              <span className="text-base sm:text-sm font-medium">Rutas cercanas</span>
+              <span className="text-base sm:text-sm font-medium whitespace-nowrap">Rutas cercanas</span>
             </>
           )}
         </button>
@@ -166,24 +160,23 @@ export const NearbyRoutesCTA: React.FC = () => {
             reset();
             openTripPlanner();
           }}
-          className="flex-1 sm:flex-none bg-secondary text-primary border-2 border-primary/20 px-5 py-3 sm:py-2.5 rounded-xl shadow-lg flex items-center justify-center gap-2 transition-all hover:bg-secondary/90 hover:border-primary/30"
+          className="flex-1 min-w-0 h-12 sm:h-11 bg-secondary text-primary border-2 border-primary/20 px-5 rounded-xl shadow-lg flex items-center justify-center gap-2 transition-all hover:bg-secondary/90 hover:border-primary/30"
         >
           <MdDirections className="text-xl sm:text-lg" />
           <span className="text-base sm:text-sm font-medium">Planificar viaje</span>
         </button>
       )}
 
-      {/* Botones secundarios - más grandes en mobile si hay espacio */}
+      {/* Botones secundarios - ahora también estilo CTA grande */}
       {primaryAction !== 'nearby' && showNearby && (
         <button
           onClick={handleFindNearby}
           disabled={isLoading}
           title="Rutas cercanas"
-          className={`bg-primary backdrop-blur-sm border border-secondary/30 text-secondary rounded-xl shadow-lg flex items-center justify-center transition-all hover:border-secondary/50 disabled:opacity-50 disabled:cursor-not-allowed ${
-            secondaryCount === 1 ? 'w-14 h-14 sm:w-11 sm:h-11' : 'w-12 h-12 sm:w-11 sm:h-11'
-          }`}
+          className="flex-1 min-w-0 h-12 sm:h-11 bg-primary backdrop-blur-sm border border-secondary/30 text-secondary px-4 rounded-xl shadow-lg flex items-center justify-center gap-2 text-base sm:text-sm font-medium transition-all hover:border-secondary/50 disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          <BiBus className={secondaryCount === 1 ? 'text-2xl sm:text-xl' : 'text-xl'} />
+          <BiBus className="text-xl sm:text-lg" />
+          <span className="whitespace-nowrap">Rutas cercanas</span>
         </button>
       )}
       
@@ -194,11 +187,10 @@ export const NearbyRoutesCTA: React.FC = () => {
             openTripPlanner();
           }}
           title="Planificar viaje"
-          className={`bg-primary backdrop-blur-sm border border-secondary/30 text-secondary rounded-xl shadow-lg flex items-center justify-center transition-all hover:border-secondary/50 ${
-            secondaryCount === 1 ? 'w-14 h-14 sm:w-11 sm:h-11' : 'w-12 h-12 sm:w-11 sm:h-11'
-          }`}
+          className="flex-1 min-w-0 h-12 sm:h-11 bg-primary backdrop-blur-sm border border-secondary/30 text-secondary px-4 rounded-xl shadow-lg flex items-center justify-center gap-2 text-base sm:text-sm font-medium transition-all hover:border-secondary/50"
         >
-          <MdDirections className={secondaryCount === 1 ? 'text-2xl sm:text-xl' : 'text-xl'} />
+          <MdDirections className="text-xl sm:text-lg" />
+          <span>Planificar viaje</span>
         </button>
       )}
     </div>
