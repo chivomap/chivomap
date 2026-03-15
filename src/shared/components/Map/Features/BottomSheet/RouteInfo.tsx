@@ -3,6 +3,7 @@ import { BiMap, BiRuler, BiRightArrowAlt, BiBus } from 'react-icons/bi';
 import { useRutasStore } from '../../../../store/rutasStore';
 import { useParadasStore } from '../../../../store/paradasStore';
 import { useMapStore } from '../../../../store/mapStore';
+import { useMapFocus } from '../../../../../hooks/useMapFocus';
 import { RouteCodeBadge } from '../../../rutas/RouteCodeBadge';
 import { CloseButton } from '../../../ui/CloseButton';
 import type { RutaFeature } from '../../../../types/rutas';
@@ -21,7 +22,8 @@ export const RouteInfo: React.FC<RouteInfoProps> = React.memo(({ route }) => {
   } = useRutasStore();
   const paradasByRuta = useParadasStore(state => state.paradasByRuta);
   const setSelectedParada = useParadasStore(state => state.setSelectedParada);
-  const { saveViewport, restoreViewport, updateConfig } = useMapStore();
+  const { saveViewport, restoreViewport } = useMapStore();
+  const { focusPoint } = useMapFocus();
   const props = route.properties;
   const hasZoomedRef = useRef(false);
 
@@ -60,17 +62,14 @@ export const RouteInfo: React.FC<RouteInfoProps> = React.memo(({ route }) => {
         const bbox = turf.bbox(route as any);
         const center = turf.center(turf.bboxPolygon(bbox));
         const [lng, lat] = center.geometry.coordinates;
-        
-        updateConfig({
-          center: { lat, lng },
-          zoom: 13
-        });
+
+        focusPoint({ lat, lng }, { zoom: 13, sheetWillBeHalf: true });
         hasZoomedRef.current = true;
       } catch (error) {
         console.error('Error centering route:', error);
       }
     }
-  }, [route, updateConfig]);
+  }, [route, focusPoint]);
 
   const handleClose = () => {
     clearSelectedRoute();

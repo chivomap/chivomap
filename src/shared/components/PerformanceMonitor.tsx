@@ -1,13 +1,14 @@
 import { useEffect, useRef } from 'react';
 // @ts-ignore - stats.js no tiene tipos
 import Stats from 'stats.js';
+import { env } from '../config/env';
 
 export const PerformanceMonitor: React.FC = () => {
   const statsRef = useRef<Stats | null>(null);
 
   useEffect(() => {
-    // Solo mostrar en desarrollo
-    if (import.meta.env.PROD) return;
+    // Solo mostrar si el feature flag está habilitado
+    if (!env.FEATURE_PERFORMANCE_MONITOR) return;
 
     const stats = new Stats();
     stats.showPanel(0); // 0: fps, 1: ms, 2: mb

@@ -2,6 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import { useParadasStore } from '../../../../store/paradasStore';
 import { useRutasStore } from '../../../../store/rutasStore';
 import { useMapStore } from '../../../../store/mapStore';
+import { useMapFocus } from '../../../../../hooks/useMapFocus';
 import type { Parada } from '../../../../types/paradas';
 import { CloseButton } from '../../../ui/CloseButton';
 
@@ -14,19 +15,17 @@ export const ParadaInfo: React.FC<ParadaInfoProps> = ({ parada }) => {
   const nearbyParadas = useParadasStore(state => state.nearbyParadas);
   const nearbyRoutes = useRutasStore(state => state.nearbyRoutes);
   const selectRoute = useRutasStore(state => state.selectRoute);
-  const { saveViewport, restoreViewport, updateConfig } = useMapStore();
+  const { saveViewport, restoreViewport } = useMapStore();
+  const { focusPoint } = useMapFocus();
   const hasZoomedRef = useRef(false);
 
   // Centrar mapa en la parada cuando se monta el componente
   useEffect(() => {
     if (parada && !hasZoomedRef.current) {
-      updateConfig({
-        center: { lat: parada.latitud, lng: parada.longitud },
-        zoom: 16
-      });
+      focusPoint({ lat: parada.latitud, lng: parada.longitud }, { zoom: 16, sheetWillBeHalf: true });
       hasZoomedRef.current = true;
     }
-  }, [parada, updateConfig]);
+  }, [parada, focusPoint]);
 
   const handleClose = () => {
     setSelectedParada(null);

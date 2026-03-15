@@ -297,6 +297,9 @@ export const MapLibreMap: React.FC = () => {
   }, [updateConfig]);
 
   const handleMapClick = useCallback((event: any) => {
+    // Limpiar overlapping routes al hacer click en cualquier parte del mapa
+    setOverlappingRoutes(null);
+
     const { features } = event;
     
     // Check if clicked on a nearby route (hitbox or line)
@@ -646,7 +649,14 @@ export const MapLibreMap: React.FC = () => {
                 onClick={() => {
                   setPin(contextMenu.lngLat); // Agregar pin
                   openNearbyRoutes(contextMenu.lngLat.lat, contextMenu.lngLat.lng); // Sin radio = búsqueda automática
-                  updateConfig({ ...config, center: { lat: contextMenu.lngLat.lat, lng: contextMenu.lngLat.lng }, zoom: 14 });
+                  // Centrar mapa via ref (modo uncontrolled)
+                  if (mapRef.current) {
+                    mapRef.current.getMap().easeTo({
+                      center: [contextMenu.lngLat.lng, contextMenu.lngLat.lat],
+                      zoom: 14,
+                      duration: 800
+                    });
+                  }
                   setContextMenu(null);
                 }}
                 className="w-full px-4 py-2.5 text-left hover:bg-white/10 transition-colors text-sm flex items-center gap-3 text-white"
