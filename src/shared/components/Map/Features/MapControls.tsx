@@ -4,8 +4,8 @@ import { BiPlus, BiMinus, BiFullscreen, BiExitFullscreen, BiCurrentLocation, BiX
 import { MdDirectionsBus, MdContentCopy } from 'react-icons/md';
 import { usePinStore } from '../../../store/pinStore';
 import { useBottomSheet } from '../../../../hooks/useBottomSheet';
-import { useMapStore } from '../../../store/mapStore';
 import { useCurrentLocation } from '../../../../hooks/useGeolocation';
+import { useMapFocus } from '../../../../hooks/useMapFocus';
 
 export const MapControls: React.FC = () => {
   const { current: map } = useMap();
@@ -14,8 +14,8 @@ export const MapControls: React.FC = () => {
   const menuRef = React.useRef<HTMLDivElement>(null);
   const { pin, clearPin } = usePinStore();
   const { openNearbyRoutes } = useBottomSheet();
-  const { updateConfig, config } = useMapStore();
   const { getLocation, loading: isLocating } = useCurrentLocation();
+  const { focusPoint } = useMapFocus();
 
   const zoomIn = () => {
     if (map) map.zoomIn();
@@ -48,11 +48,7 @@ export const MapControls: React.FC = () => {
   const centerOnUserLocation = async () => {
     try {
       const location = await getLocation();
-      updateConfig({ 
-        ...config, 
-        center: { lat: location.lat, lng: location.lng }, 
-        zoom: 15
-      });
+      focusPoint(location, { zoom: 15 });
     } catch (error) {
       alert(error instanceof Error ? error.message : 'Error obteniendo ubicación');
     }

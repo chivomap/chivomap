@@ -288,35 +288,34 @@ export const MapLibreMap: React.FC = () => {
     }
   }, [showNearbyOnMap, nearbyRoutes]);
 
-  // RAF throttle para updateConfig - actualizar a 60fps máximo
-  const rafIdRef = useRef<number | null>(null);
-  const pendingUpdateRef = useRef<{ center: { lat: number; lng: number }; zoom: number } | null>(null);
-  
-  const handleViewStateChange = useCallback((evt: ViewStateChangeEvent) => {
-    // Limpiar overlapping routes cuando el usuario arrastra el mapa
-    setOverlappingRoutes(null);
-    
-    // Guardar el update pendiente
-    pendingUpdateRef.current = {
+  // Distinguir cambios de drag (usuario) vs programáticos (store)
+  const isUserMoveRef = useRef(false);
+
+  const handleMoveEnd = useCallback((evt: ViewStateChangeEvent) => {
+    isUserMoveRef.current = true;
+    updateConfig({
       center: { lat: evt.viewState.latitude, lng: evt.viewState.longitude },
       zoom: evt.viewState.zoom
-    };
-    
-    // Si ya hay un RAF pendiente, no crear otro
-    if (rafIdRef.current !== null) return;
-    
-    // Usar RAF para batch updates a 60fps
-    rafIdRef.current = requestAnimationFrame(() => {
-      if (pendingUpdateRef.current) {
-        updateConfig(pendingUpdateRef.current);
-        pendingUpdateRef.current = null;
-      }
-      rafIdRef.current = null;
     });
-  }, [updateConfig, setOverlappingRoutes]);
+  }, [updateConfig]);
+
+  // Cuando el store cambia programáticamente, mover el mapa via ref
+  useEffect(() => {
+    if (isUserMoveRef.current) {
+      isUserMoveRef.current = false;
+      return;
+    }
+    if (!mapRef.current) return;
+
+    mapRef.current.getMap().easeTo({
+      center: [center.lng, center.lat],
+      zoom,
+      duration: 800,
+    });
+  }, [center.lat, center.lng, zoom]);
 
   const handleMapClick = useCallback((event: any) => {
-    // Limpiar overlapping routes cuando se hace click en el mapa
+    // Limpiar overlapping routes al hacer click en cualquier parte del mapa
     setOverlappingRoutes(null);
 
     const { features } = event;
@@ -389,15 +388,17 @@ export const MapLibreMap: React.FC = () => {
     <div className="w-screen h-screen fixed top-0 left-0">
       <Map
         ref={mapRef}
-        longitude={center.lng}
-        latitude={center.lat}
-        zoom={zoom}
+        initialViewState={{
+          longitude: center.lng,
+          latitude: center.lat,
+          zoom: zoom
+        }}
         minZoom={env.MAP_MIN_ZOOM}
         maxZoom={18}
         style={{ width: '100%', height: '100%' }}
         mapStyle={mapStyle}
         onLoad={handleMapLoad}
-        onMove={handleViewStateChange}
+        onMoveEnd={handleMoveEnd}
         onClick={(event) => {
           // Check for nearby routes click
           if (event.features && event.features.length > 0) {
@@ -666,7 +667,14 @@ export const MapLibreMap: React.FC = () => {
                 onClick={() => {
                   setPin(contextMenu.lngLat); // Agregar pin
                   openNearbyRoutes(contextMenu.lngLat.lat, contextMenu.lngLat.lng); // Sin radio = búsqueda automática
-                  updateConfig({ ...config, center: { lat: contextMenu.lngLat.lat, lng: contextMenu.lngLat.lng }, zoom: 14 });
+                  // Centrar mapa via ref (modo uncontrolled)
+                  if (mapRef.current) {
+                    mapRef.current.getMap().easeTo({
+                      center: [contextMenu.lngLat.lng, contextMenu.lngLat.lat],
+                      zoom: 14,
+                      duration: 800
+                    });
+                  }
                   setContextMenu(null);
                 }}
                 className="w-full px-4 py-2.5 text-left hover:bg-white/10 transition-colors text-sm flex items-center gap-3 text-white"

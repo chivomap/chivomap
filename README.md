@@ -1,28 +1,69 @@
-# ChivoMap 🗺️
 
-Aplicación web interactiva para visualización y análisis de datos geográficos de El Salvador.
 
-![License](https://img.shields.io/badge/license-AGPL--3.0-blue.svg)
-![Version](https://img.shields.io/badge/version-2.0.0-green.svg)
+<h1 align="center">ChivoMap</h1>
 
-## Características
+<p align="center">
+  <strong>Mapa interactivo de transporte público de El Salvador</strong>
+</p>
 
-- 🔍 Búsqueda de departamentos, municipios y distritos
-- 📍 Sistema de anotaciones (pins, polígonos)
-- ✏️ Dibujo manual de polígonos
-- 📥 Exportación a GeoJSON
-- 🗺️ Múltiples estilos de mapa
-- 📱 Diseño responsive (móvil y desktop)
-- 🎨 Navegación jerárquica con colores por región
+<p align="center">
+  <a href="https://github.com/chivomap/web/blob/main/LICENSE">
+    <img src="https://img.shields.io/badge/license-AGPL--3.0-blue.svg" alt="License" />
+  </a>
+  <img src="https://img.shields.io/badge/version-0.1.1-green.svg" alt="Version" />
+  <img src="https://img.shields.io/badge/react-18-61dafb.svg" alt="React" />
+  <img src="https://img.shields.io/badge/typescript-5-3178c6.svg" alt="TypeScript" />
+  <img src="https://img.shields.io/badge/maplibre--gl-5-4264fb.svg" alt="MapLibre" />
+</p>
 
-## Tecnologías
+<p align="center">
+  Explora más de 3,000 rutas de buses, busca paradas cercanas y planifica viajes en transporte público a lo largo de todo El Salvador.
+</p>
 
-- **React 18** + TypeScript
-- **MapLibre GL JS** - Mapas interactivos
-- **Tailwind CSS** - Estilos
-- **Zustand** - Estado global
-- **Turf.js** - Análisis geoespacial
-- **Vite** - Build tool
+---
+
+<p align="center">
+  <img src="./public/Chivomap.png" alt="ChivoMap" />
+</p>
+
+## Funcionalidades
+
+**Mapa**
+- Visualización de rutas de buses con colores por tipo (urbano, interurbano, interdepartamental)
+- Niveles de detalle adaptativos (LOD) según el zoom
+- Temas claro/oscuro con mapas CartoDB
+- Persistencia de viewport entre sesiones
+
+**Búsqueda**
+- Búsqueda unificada de rutas, lugares y regiones geográficas
+- Fuzzy matching local para rutas (Fuse.js)
+- Búsqueda de lugares vía API con distancia desde tu ubicación
+- Navegación jerárquica: Departamento → Municipio → Distrito
+
+**Transporte**
+- Rutas cercanas basadas en geolocalización o ubicación seleccionada
+- Paradas de bus con información detallada
+- Planificador de viajes multi-modal (bus + caminata)
+- Opciones de ruta con estimación de tiempo, distancia y transbordos
+
+**Interacción**
+- Long-press en móvil para colocar pins (con vibración háptica)
+- Click derecho para menú contextual en desktop
+- Bottom sheet con 3 estados (peek/half/full) y drag inteligente
+- Geocoding inverso automático al seleccionar ubicaciones
+
+## Stack Técnico
+
+| Capa | Tecnología |
+|------|-----------|
+| Framework | React 18 + TypeScript |
+| Mapa | MapLibre GL JS vía react-map-gl |
+| Estado | Zustand (14 stores modulares) |
+| Estilos | Tailwind CSS |
+| Geo | Turf.js |
+| Routing | Wouter |
+| Build | Vite 5 |
+| Paquetes | pnpm |
 
 ## Arquitectura
 
@@ -30,117 +71,92 @@ Aplicación web interactiva para visualización y análisis de datos geográfico
 flowchart LR
     U[Usuario] --> UI[UI React]
     UI --> MAP[MapLibreMap]
-    UI --> SEARCH[Search UI]
+    UI --> SEARCH[Search]
     UI --> SHEET[Bottom Sheet]
     UI --> STORE[Zustand Stores]
-    STORE --> SVC[Servicios API Frontend]
+    STORE --> SVC[API Client]
     SVC --> API[Go Fiber API]
     API --> H[Handlers]
     H --> C[Cache/Services]
-    C --> GEO[Assets Geo/TopoJSON]
-    C --> RUTAS[Cache Rutas/Paradas]
-    H --> DB[Turso / Censo DB]
-    H --> PG[Postgres/PostGIS Geocoding]
-    H --> SCRAPE[Scraping Sismos]
-    API --> RESP[JSON Response]
+    C --> GEO[GeoJSON/TopoJSON]
+    C --> RUTAS[Rutas/Paradas]
+    H --> DB[Turso DB]
+    H --> PG[PostGIS Geocoding]
+    API --> RESP[JSON]
     RESP --> STORE
-    STORE --> UI
 ```
 
+```
+src/
+├── pages/                # Páginas (Home, About, Export, Account)
+├── hooks/                # Hooks custom (useBottomSheet, useGeolocation, useMapFocus)
+└── shared/
+    ├── components/
+    │   ├── Map/          # MapLibreMap, controles, capas, bottom sheet
+    │   ├── rutas/        # Capas de rutas y rutas cercanas
+    │   ├── paradas/      # Capa de paradas
+    │   └── ui/           # Componentes reutilizables
+    ├── store/            # 14 stores Zustand
+    ├── api/              # Clientes HTTP
+    ├── services/         # Servicios de datos
+    ├── types/            # Definiciones TypeScript
+    ├── config/           # Variables de entorno
+    └── data/             # Estilos de mapa
+```
 
-## 📦 Instalación
+## Inicio Rápido
 
 ```bash
-# Clonar repositorio
+# Clonar
 git clone https://github.com/chivomap/web.git
 cd web
 
 # Instalar dependencias
 pnpm install
 
+# Configurar variables de entorno
+cp .env.example .env
+
 # Desarrollo
 pnpm dev
 
-# Build para producción
+# Build
 pnpm build
 ```
 
-## 🎯 Uso
+### Variables de Entorno
 
-### Búsqueda
-- Escribe el nombre de un departamento, municipio o distrito
-- Selecciona de los resultados para visualizar en el mapa
-
-### Anotaciones
-- **Click derecho** → Menú contextual con opciones
-- **Agregar pin** → Marca un punto en el mapa
-- **Dibujar polígono** → Activa modo dibujo manual
-- **Exportar** → Descarga como GeoJSON
-
-### Navegación
-- Click en polígonos para navegar entre niveles
-- Departamento → Municipio → Distrito
-- Botones de "Volver" para regresar
-
-## 📄 Licencia
-
-Este proyecto está licenciado bajo **GNU Affero General Public License v3.0 (AGPL-3.0)**.
-
-### ¿Qué significa esto?
-
-✅ **Puedes:**
-- Usar el software libremente
-- Modificarlo según tus necesidades
-- Distribuirlo
-- Usarlo comercialmente
-
-❌ **Debes:**
-- Mantener la misma licencia AGPL-3.0
-- Compartir el código fuente de cualquier modificación
-- Si lo usas como servicio web, hacer el código disponible a los usuarios
-
-### ¿Por qué AGPL?
-
-Esta licencia protege que ChivoMap siempre sea **software libre y de código abierto**. Evita que:
-- Gobiernos o empresas hagan versiones privadas
-- Se comercialice sin compartir mejoras con la comunidad
-- Se cierre el acceso al código fuente
-
-Para más detalles, ver [LICENSE](./LICENSE) o https://www.gnu.org/licenses/agpl-3.0.html
-
-## Desarrollador
-
-**Eliseo Arévalo**
-- Website: [eliseo-arevalo.github.io](https://eliseo-arevalo.github.io/)
-- GitHub: [@eliseo-arevalo](https://github.com/eliseo-arevalo)
+| Variable | Descripción | Default |
+|----------|------------|---------|
+| `VITE_API_URL` | URL del backend API | — |
+| `VITE_MAP_DEFAULT_LAT` | Latitud inicial del mapa | `13.69` |
+| `VITE_MAP_DEFAULT_LNG` | Longitud inicial del mapa | `-89.19` |
+| `VITE_MAP_DEFAULT_ZOOM` | Zoom inicial | `9` |
+| `VITE_FEATURE_TRIP_PLANNER` | Habilitar planificador de viajes | `false` |
+| `VITE_FEATURE_ROUTE_ARROWS` | Flechas de dirección en rutas | `false` |
 
 ## Contribuir
 
-¡Las contribuciones son bienvenidas! Este es un proyecto comunitario.
+Las contribuciones son bienvenidas. Este es un proyecto comunitario.
 
 1. Fork el proyecto
-2. Crea una rama para tu feature (`git checkout -b feature/AmazingFeature`)
-3. Commit tus cambios (`git commit -m 'Add some AmazingFeature'`)
-4. Push a la rama (`git push origin feature/AmazingFeature`)
+2. Crea una rama (`git checkout -b feature/mi-feature`)
+3. Commit tus cambios (`git commit -m 'Agregar mi feature'`)
+4. Push (`git push origin feature/mi-feature`)
 5. Abre un Pull Request
 
-Ver [CONTRIBUTING.md](./CONTRIBUTING.md) para más detalles.
+Ver [CONTRIBUTING.md](./CONTRIBUTING.md) para guías detalladas.
 
-## Organización
+## Licencia
 
-Este proyecto es parte de [ChivoMap](https://github.com/chivomap) - Una iniciativa para democratizar el acceso a datos geográficos de El Salvador.
+[AGPL-3.0](./LICENSE) — ChivoMap es y siempre será software libre y de código abierto. Si modificas el código o lo usas como servicio web, debes compartir el código fuente bajo la misma licencia.
 
-## 📞 Soporte
+## Autor
 
-- Issues: [GitHub Issues](https://github.com/chivomap/web/issues)
-- Discusiones: [GitHub Discussions](https://github.com/chivomap/web/discussions)
-
-## Agradecimientos
-
-- Datos geográficos de El Salvador
-- Comunidad open source
-- Contribuidores del proyecto
+**Eliseo Arévalo** — [@eliseo-arevalo](https://github.com/eliseo-arevalo)
 
 ---
 
-**Nota importante sobre la licencia:** Si planeas usar ChivoMap en tu organización o modificarlo, por favor lee cuidadosamente la licencia AGPL-3.0. Si tienes dudas sobre cómo cumplir con los términos, abre un issue para discutirlo.
+<p align="center">
+  Parte de <a href="https://github.com/chivomap">ChivoMap</a> — Democratizando el acceso a datos de transporte en El Salvador.
+</p>
