@@ -288,13 +288,31 @@ export const MapLibreMap: React.FC = () => {
     }
   }, [showNearbyOnMap, nearbyRoutes]);
 
-  // Solo sincronizar con el store al final del movimiento (para persistencia)
+  // Distinguir cambios de drag (usuario) vs programáticos (store)
+  const isUserMoveRef = useRef(false);
+
   const handleMoveEnd = useCallback((evt: ViewStateChangeEvent) => {
+    isUserMoveRef.current = true;
     updateConfig({
       center: { lat: evt.viewState.latitude, lng: evt.viewState.longitude },
       zoom: evt.viewState.zoom
     });
   }, [updateConfig]);
+
+  // Cuando el store cambia programáticamente, mover el mapa via ref
+  useEffect(() => {
+    if (isUserMoveRef.current) {
+      isUserMoveRef.current = false;
+      return;
+    }
+    if (!mapRef.current) return;
+
+    mapRef.current.getMap().easeTo({
+      center: [center.lng, center.lat],
+      zoom,
+      duration: 800,
+    });
+  }, [center.lat, center.lng, zoom]);
 
   const handleMapClick = useCallback((event: any) => {
     // Limpiar overlapping routes al hacer click en cualquier parte del mapa
