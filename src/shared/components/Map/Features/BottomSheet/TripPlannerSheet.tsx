@@ -24,6 +24,7 @@ export const TripPlannerSheet: React.FC = () => {
     setFocusedLegIndex,
     setIsSelectingOrigin,
     setIsSelectingDestination,
+    setFocusedInput,
     swapLocations,
   } = useTripPlannerStore();
   const { closeContent } = useBottomSheet();
@@ -285,6 +286,7 @@ export const TripPlannerSheet: React.FC = () => {
     setDestination(null);
     setIsSelectingOrigin(false);
     setIsSelectingDestination(false);
+    setFocusedInput(null);
     setTripPlan(null);
     setSelectedOptionIndex(null);
     setFocusedLegIndex(null);
@@ -316,6 +318,8 @@ export const TripPlannerSheet: React.FC = () => {
                 type="text"
                 value={originInput}
                 onChange={(e) => handleOriginSearch(e.target.value)}
+                onFocus={() => setFocusedInput('origin')}
+                onBlur={() => setTimeout(() => setFocusedInput(null), 200)}
                 placeholder="Origen"
                 className="flex-1 bg-transparent text-white placeholder-white/40 focus:outline-none"
               />
@@ -356,6 +360,8 @@ export const TripPlannerSheet: React.FC = () => {
                 type="text"
                 value={destinationInput}
                 onChange={(e) => handleDestinationSearch(e.target.value)}
+                onFocus={() => setFocusedInput('destination')}
+                onBlur={() => setTimeout(() => setFocusedInput(null), 200)}
                 placeholder="Destino"
                 className="flex-1 bg-transparent text-white placeholder-white/40 focus:outline-none"
               />

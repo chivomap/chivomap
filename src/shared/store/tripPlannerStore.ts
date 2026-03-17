@@ -1,6 +1,8 @@
 import { create } from 'zustand';
 import { Location, TripPlanResponse } from '../types/trip';
 
+type FocusedInput = 'origin' | 'destination' | null;
+
 interface TripPlannerState {
   origin: Location | null;
   destination: Location | null;
@@ -9,7 +11,8 @@ interface TripPlannerState {
   focusedLegIndex: number | null;
   isSelectingOrigin: boolean;
   isSelectingDestination: boolean;
-  
+  focusedInput: FocusedInput;
+
   setOrigin: (location: Location | null) => void;
   setDestination: (location: Location | null) => void;
   setTripPlan: (plan: TripPlanResponse | null) => void;
@@ -17,6 +20,7 @@ interface TripPlannerState {
   setFocusedLegIndex: (index: number | null) => void;
   setIsSelectingOrigin: (selecting: boolean) => void;
   setIsSelectingDestination: (selecting: boolean) => void;
+  setFocusedInput: (input: FocusedInput) => void;
   swapLocations: () => void;
   reset: () => void;
 }
@@ -29,7 +33,8 @@ export const useTripPlannerStore = create<TripPlannerState>((set, get) => ({
   focusedLegIndex: null,
   isSelectingOrigin: false,
   isSelectingDestination: false,
-  
+  focusedInput: null,
+
   setOrigin: (location) => set({ origin: location }),
   setDestination: (location) => set({ destination: location }),
   setTripPlan: (plan) => set({ tripPlan: plan }),
@@ -37,6 +42,7 @@ export const useTripPlannerStore = create<TripPlannerState>((set, get) => ({
   setFocusedLegIndex: (index) => set({ focusedLegIndex: index }),
   setIsSelectingOrigin: (selecting) => set({ isSelectingOrigin: selecting }),
   setIsSelectingDestination: (selecting) => set({ isSelectingDestination: selecting }),
+  setFocusedInput: (input) => set({ focusedInput: input }),
   
   swapLocations: () => {
     const { origin, destination } = get();
@@ -51,5 +57,6 @@ export const useTripPlannerStore = create<TripPlannerState>((set, get) => ({
     focusedLegIndex: null,
     isSelectingOrigin: false,
     isSelectingDestination: false,
+    focusedInput: null,
   }),
 }));
