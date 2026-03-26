@@ -6,6 +6,8 @@ import { usePinStore } from '../../../store/pinStore';
 import { useBottomSheet } from '../../../../hooks/useBottomSheet';
 import { useCurrentLocation } from '../../../../hooks/useGeolocation';
 import { useMapFocus } from '../../../../hooks/useMapFocus';
+import { AppError, ErrorType } from '../../../errors/AppError';
+import { useErrorStore } from '../../../store/errorStore';
 
 export const MapControls: React.FC = () => {
   const { current: map } = useMap();
@@ -16,6 +18,7 @@ export const MapControls: React.FC = () => {
   const { openNearbyRoutes } = useBottomSheet();
   const { getLocation, loading: isLocating } = useCurrentLocation();
   const { focusPoint } = useMapFocus();
+  const { showError } = useErrorStore();
 
   const zoomIn = () => {
     if (map) map.zoomIn();
@@ -50,7 +53,11 @@ export const MapControls: React.FC = () => {
       const location = await getLocation();
       focusPoint(location, { zoom: 15 });
     } catch (error) {
-      alert(error instanceof Error ? error.message : 'Error obteniendo ubicación');
+      if (error instanceof AppError) {
+        showError(error);
+      } else {
+        showError(new AppError(ErrorType.UNKNOWN, 'LOCATION_ERROR', String(error), 'Error obteniendo ubicación'));
+      }
     }
   };
 

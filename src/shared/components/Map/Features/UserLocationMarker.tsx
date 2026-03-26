@@ -3,15 +3,14 @@ import { Marker } from 'react-map-gl/maplibre';
 import { useGeolocation } from '../../../../hooks/useGeolocation';
 
 export const UserLocationMarker: React.FC = () => {
-  const { location, permissionState } = useGeolocation({
+  const { location } = useGeolocation({
     watch: true,
     enableHighAccuracy: false,
     timeout: 10000,
     maximumAge: 30000,
   });
 
-  // Solo mostrar si hay ubicación y permisos concedidos
-  if (!location || permissionState !== 'granted') return null;
+  if (!location) return null;
 
   return (
     <Marker

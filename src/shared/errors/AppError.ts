@@ -4,6 +4,7 @@ export enum ErrorType {
   TIMEOUT = 'TIMEOUT',
   GEOJSON = 'GEOJSON',
   MAP = 'MAP',
+  GEOLOCATION = 'GEOLOCATION',
   UNKNOWN = 'UNKNOWN'
 }
 
@@ -37,3 +38,15 @@ export const createValidationError = (message: string, code = 'VALIDATION_ERROR'
 
 export const createGeoJsonError = (message: string, code = 'GEOJSON_ERROR') =>
   new AppError(ErrorType.GEOJSON, code, message, 'Error procesando datos geográficos.');
+
+export const createGeolocationDeniedError = (message: string, code = 'GEOLOCATION_DENIED') =>
+  new AppError(ErrorType.GEOLOCATION, code, message, 'Permiso de ubicación denegado. Revisá la configuración de tu navegador.');
+
+export const createGeolocationUnavailableError = (message: string, code = 'GEOLOCATION_UNAVAILABLE') =>
+  new AppError(ErrorType.GEOLOCATION, code, message, 'No se pudo obtener tu ubicación. Verificá que el GPS esté activado.');
+
+export const createGeolocationTimeoutError = (message: string, code = 'GEOLOCATION_TIMEOUT') =>
+  new AppError(ErrorType.GEOLOCATION, code, message, 'La búsqueda de ubicación tardó demasiado. Intentá de nuevo.');
+
+export const createGeolocationUnsupportedError = (message: string, code = 'GEOLOCATION_UNSUPPORTED') =>
+  new AppError(ErrorType.GEOLOCATION, code, message, 'Tu navegador no soporta geolocalización.');

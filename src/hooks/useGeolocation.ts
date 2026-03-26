@@ -1,4 +1,11 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import {
+  AppError,
+  createGeolocationDeniedError,
+  createGeolocationUnavailableError,
+  createGeolocationTimeoutError,
+  createGeolocationUnsupportedError,
+} from '../shared/errors/AppError';
 
 interface GeolocationState {
   location: { lat: number; lng: number } | null;
@@ -56,8 +63,6 @@ export const useGeolocation = (options: UseGeolocationOptions = {}) => {
     }
 
     if (!navigator.permissions) {
-      // Permissions API not supported (older browsers)
-      setState((prev) => ({ ...prev, permissionState: 'unsupported' }));
       return;
     }
 
@@ -81,8 +86,7 @@ export const useGeolocation = (options: UseGeolocationOptions = {}) => {
   useEffect(() => {
     if (!watch || !navigator.geolocation) return;
 
-    // Only start watch if permission is granted
-    if (state.permissionState !== 'granted') return;
+    if (state.permissionState === 'denied') return;
 
     const successCallback = (position: GeolocationPosition) => {
       const location = {
@@ -167,15 +171,15 @@ export const useGeolocation = (options: UseGeolocationOptions = {}) => {
 // Hook simplificado para solo obtener la ubicación actual
 export const useCurrentLocation = () => {
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<AppError | null>(null);
   const isRequestingRef = useRef(false);
 
   const getLocation = useCallback((): Promise<{ lat: number; lng: number }> => {
     return new Promise((resolve, reject) => {
       if (!navigator.geolocation) {
-        const errorMsg = 'Tu navegador no soporta geolocalización';
-        setError(errorMsg);
-        reject(new Error(errorMsg));
+        const appError = createGeolocationUnsupportedError('navigator.geolocation not available');
+        setError(appError);
+        reject(appError);
         return;
       }
 
@@ -200,24 +204,27 @@ export const useCurrentLocation = () => {
           resolve(location);
         },
         (err) => {
-          let errorMsg = 'No se pudo obtener tu ubicación';
-          
+          let appError: AppError;
+
           switch (err.code) {
             case err.PERMISSION_DENIED:
-              errorMsg = 'Permiso de ubicación denegado. Verifica la configuración de tu navegador.';
+              appError = createGeolocationDeniedError(err.message);
               break;
             case err.POSITION_UNAVAILABLE:
-              errorMsg = 'Ubicación no disponible. Verifica tu conexión GPS.';
+              appError = createGeolocationUnavailableError(err.message);
               break;
             case err.TIMEOUT:
-              errorMsg = 'Tiempo de espera agotado. Intenta de nuevo.';
+              appError = createGeolocationTimeoutError(err.message);
+              break;
+            default:
+              appError = createGeolocationUnavailableError(err.message);
               break;
           }
-          
-          setError(errorMsg);
+
+          setError(appError);
           setLoading(false);
           isRequestingRef.current = false;
-          reject(new Error(errorMsg));
+          reject(appError);
         },
         DEFAULT_OPTIONS
       );
