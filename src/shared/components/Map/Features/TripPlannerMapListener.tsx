@@ -31,7 +31,7 @@ export const TripPlannerMapListener: React.FC = () => {
       const coords = `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
 
       // Determinar si es origen o destino
-      const isOrigin = isSelectingOrigin || focusedInput === 'origin';
+      const isOrigin = !isSelectingDestination && (isSelectingOrigin || focusedInput === 'origin');
       const setter = isOrigin ? setOrigin : setDestination;
 
       // Poner coordenadas inmediatamente y cerrar modos de selección
