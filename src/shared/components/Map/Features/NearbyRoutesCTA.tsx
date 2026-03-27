@@ -10,6 +10,8 @@ import { useTripPlannerStore } from '../../../store/tripPlannerStore';
 import { useCurrentLocation } from '../../../../hooks/useGeolocation';
 import { useMapFocus } from '../../../../hooks/useMapFocus';
 import { env } from '../../../config/env';
+import { AppError, ErrorType } from '../../../errors/AppError';
+import { useErrorStore } from '../../../store/errorStore';
 
 export const NearbyRoutesCTA: React.FC = () => {
   const { fetchNearbyRoutes, nearbyRoutes, clearSelectedRoute } = useRutasStore();
@@ -20,6 +22,7 @@ export const NearbyRoutesCTA: React.FC = () => {
   const { reset, setDestination } = useTripPlannerStore();
   const { getLocation } = useCurrentLocation();
   const { focusPoint } = useMapFocus();
+  const { showError } = useErrorStore();
   const [isLoading, setIsLoading] = useState(false);
 
   // Ubicación contextual: lugar buscado > pin > geolocalización
@@ -49,8 +52,11 @@ export const NearbyRoutesCTA: React.FC = () => {
         fetchNearbyParadas(location.lat, location.lng)
       ]);
     } catch (error) {
-      console.error('Error:', error);
-      alert(error instanceof Error ? error.message : 'Error obteniendo ubicación');
+      if (error instanceof AppError) {
+        showError(error);
+      } else {
+        showError(new AppError(ErrorType.UNKNOWN, 'LOCATION_ERROR', String(error), 'Error obteniendo ubicación'));
+      }
     } finally {
       setIsLoading(false);
     }

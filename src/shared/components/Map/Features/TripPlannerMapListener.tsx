@@ -6,27 +6,47 @@ import { reverseGeocode } from '../../../api/search';
 
 export const TripPlannerMapListener: React.FC = () => {
   const { current: map } = useMap();
-  const { isSelectingOrigin, isSelectingDestination, setOrigin, setDestination, setIsSelectingOrigin, setIsSelectingDestination } = useTripPlannerStore();
+  const {
+    isSelectingOrigin, isSelectingDestination,
+    focusedInput,
+    setOrigin, setDestination,
+    setIsSelectingOrigin, setIsSelectingDestination, setFocusedInput,
+  } = useTripPlannerStore();
   const { setSheetState } = useBottomSheetStore();
 
+  // Modo explícito: botones "Seleccionar en mapa" (mobile)
+  const isExplicitSelecting = isSelectingOrigin || isSelectingDestination;
+  // Modo implícito: input con foco (desktop - click en mapa asigna al campo enfocado)
+  const isImplicitSelecting = !isExplicitSelecting && focusedInput !== null;
+  const isActive = isExplicitSelecting || isImplicitSelecting;
+
   useEffect(() => {
-    if (!map) return;
+    if (!map || !isActive) {
+      map?.getCanvas().style.cursor && (map.getCanvas().style.cursor = '');
+      return;
+    }
 
     const handleClick = async (e: any) => {
       const { lat, lng } = e.lngLat;
       const coords = `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
-      const setter = isSelectingOrigin ? setOrigin : setDestination;
 
-      // Poner coordenadas inmediatamente y cerrar modo selección
+      // Determinar si es origen o destino
+      const isOrigin = isSelectingOrigin || (!isSelectingDestination && focusedInput === 'origin');
+      const setter = isOrigin ? setOrigin : setDestination;
+
+      // Poner coordenadas inmediatamente y cerrar modos de selección
       setter({ lat, lng, name: coords });
       setIsSelectingOrigin(false);
       setIsSelectingDestination(false);
-      setSheetState('full');
+      setFocusedInput(null);
+
+      if (isExplicitSelecting) {
+        setSheetState('full');
+      }
 
       // Reverse geocoding en background para reemplazar con nombre legible
       try {
         const result = await reverseGeocode(lat, lng) as any;
-        // El API puede devolver { results: [...] } o un objeto directo
         const place = result.results?.[0] ?? result;
         const name = place.display_name || place.name;
         if (name) {
@@ -37,18 +57,16 @@ export const TripPlannerMapListener: React.FC = () => {
       }
     };
 
-    if (isSelectingOrigin || isSelectingDestination) {
+    if (isExplicitSelecting) {
       map.getCanvas().style.cursor = 'crosshair';
-      map.on('click', handleClick);
-    } else {
-      map.getCanvas().style.cursor = '';
     }
+    map.on('click', handleClick);
 
     return () => {
       map.off('click', handleClick);
       map.getCanvas().style.cursor = '';
     };
-  }, [map, isSelectingOrigin, isSelectingDestination, setOrigin, setDestination, setIsSelectingOrigin, setIsSelectingDestination, setSheetState]);
+  }, [map, isActive, isExplicitSelecting, isSelectingOrigin, isSelectingDestination, focusedInput, setOrigin, setDestination, setIsSelectingOrigin, setIsSelectingDestination, setFocusedInput, setSheetState]);
 
   return null;
 };

@@ -11,6 +11,8 @@ import { useBottomSheet } from '../../../../../hooks/useBottomSheet';
 import { useCurrentLocation } from '../../../../../hooks/useGeolocation';
 import { useMapFocus } from '../../../../../hooks/useMapFocus';
 import { CloseButton } from '../../../ui/CloseButton';
+import { AppError, ErrorType } from '../../../../errors/AppError';
+import { useErrorStore } from '../../../../store/errorStore';
 
 export const TripPlannerSheet: React.FC = () => {
   const {
@@ -24,6 +26,7 @@ export const TripPlannerSheet: React.FC = () => {
     setFocusedLegIndex,
     setIsSelectingOrigin,
     setIsSelectingDestination,
+    setFocusedInput,
     swapLocations,
   } = useTripPlannerStore();
   const { closeContent } = useBottomSheet();
@@ -39,7 +42,9 @@ export const TripPlannerSheet: React.FC = () => {
   const [nearbyPlaces, setNearbyPlaces] = useState<any[]>([]);
   const [planError, setPlanError] = useState<string | null>(null);
   const nearbyPlacesTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const blurTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { getLocation } = useCurrentLocation();
+  const { showError } = useErrorStore();
   const hasAutoFilledOrigin = useRef(false);
   const prevOriginDestRef = useRef<string>('');
   const { focusPoint, focusPoints } = useMapFocus();
@@ -240,7 +245,11 @@ export const TripPlannerSheet: React.FC = () => {
         // Mantener "Mi ubicación" como fallback
       }
     } catch (error) {
-      console.error('Error getting location:', error);
+      if (error instanceof AppError) {
+        showError(error);
+      } else {
+        showError(new AppError(ErrorType.UNKNOWN, 'LOCATION_ERROR', String(error), 'Error obteniendo ubicación'));
+      }
     }
   };
 
@@ -285,6 +294,7 @@ export const TripPlannerSheet: React.FC = () => {
     setDestination(null);
     setIsSelectingOrigin(false);
     setIsSelectingDestination(false);
+    setFocusedInput(null);
     setTripPlan(null);
     setSelectedOptionIndex(null);
     setFocusedLegIndex(null);
@@ -316,6 +326,8 @@ export const TripPlannerSheet: React.FC = () => {
                 type="text"
                 value={originInput}
                 onChange={(e) => handleOriginSearch(e.target.value)}
+                onFocus={() => { if (blurTimerRef.current) { clearTimeout(blurTimerRef.current); blurTimerRef.current = null; } setFocusedInput('origin'); }}
+                onBlur={() => { blurTimerRef.current = setTimeout(() => setFocusedInput(null), 200); }}
                 placeholder="Origen"
                 className="flex-1 bg-transparent text-white placeholder-white/40 focus:outline-none"
               />
@@ -356,6 +368,8 @@ export const TripPlannerSheet: React.FC = () => {
                 type="text"
                 value={destinationInput}
                 onChange={(e) => handleDestinationSearch(e.target.value)}
+                onFocus={() => { if (blurTimerRef.current) { clearTimeout(blurTimerRef.current); blurTimerRef.current = null; } setFocusedInput('destination'); }}
+                onBlur={() => { blurTimerRef.current = setTimeout(() => setFocusedInput(null), 200); }}
                 placeholder="Destino"
                 className="flex-1 bg-transparent text-white placeholder-white/40 focus:outline-none"
               />

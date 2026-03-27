@@ -10,8 +10,7 @@ export const UserLocationMarker: React.FC = () => {
     maximumAge: 30000,
   });
 
-  // Solo mostrar si hay ubicación y permisos concedidos
-  if (!location || permissionState !== 'granted') return null;
+  if (!location || permissionState === 'denied') return null;
 
   return (
     <Marker

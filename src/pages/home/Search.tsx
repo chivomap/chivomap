@@ -19,6 +19,8 @@ import { LngLat } from 'maplibre-gl';
 import { useMapFocus } from '../../hooks/useMapFocus';
 
 export const Search: React.FC = () => {
+  const getIsRouteQuery = (value: string) => /\d/.test(value) || /\bruta\b/i.test(value);
+
   const { inputValue, showResults, setInputValue, setShowResults } = useSearchStore();
   const { setSelectedResult, clearSelectedResult } = usePlaceSearchStore();
   const [placeResults, setPlaceResults] = useState<SearchResult[]>([]);
@@ -223,7 +225,7 @@ export const Search: React.FC = () => {
         .replace(/[^A-Z0-9]/g, '');
 
     const normalizedQuery = normalizeRouteQuery(inputValue);
-    const isRouteQuery = /\d/.test(inputValue) || /\bruta\b/i.test(inputValue);
+    const isRouteQuery = getIsRouteQuery(inputValue);
 
     const fuseResults = fuseInstance.search(inputValue).map(result => result.item as typeof allRoutes[0]);
     const normalizedMatches = normalizedQuery.length >= 2
@@ -250,6 +252,34 @@ export const Search: React.FC = () => {
   }, [inputValue, fuseInstance, allRoutes]);
 
   const { routes: filteredRoutes } = searchResults;
+  const isRouteQuery = getIsRouteQuery(inputValue);
+  const visiblePlaceResults = placeResults.slice(0, 5);
+  const visibleRoutes = filteredRoutes.slice(0, 5);
+  const orderedSections = isRouteQuery
+    ? [
+      {
+        key: 'routes',
+        label: 'Rutas de Transporte',
+        items: visibleRoutes,
+      },
+      {
+        key: 'places',
+        label: 'Lugares',
+        items: visiblePlaceResults,
+      },
+    ]
+    : [
+      {
+        key: 'places',
+        label: 'Lugares',
+        items: visiblePlaceResults,
+      },
+      {
+        key: 'routes',
+        label: 'Rutas de Transporte',
+        items: visibleRoutes,
+      },
+    ];
 
   const isSelfLoading = isRutasLoading && allRoutes.length === 0;
 
@@ -307,92 +337,88 @@ export const Search: React.FC = () => {
                 "
               >
                 {/* Resultados unificados */}
-                {(filteredRoutes?.length > 0 || placeResults?.length > 0) ? (
+                {(visibleRoutes.length > 0 || visiblePlaceResults.length > 0) ? (
                   <div className="divide-y divide-white/5">
-                    {/* Lugares */}
-                    {placeResults?.length > 0 && (
-                      <div>
-                        <p className="px-4 py-2 text-xs font-semibold text-secondary uppercase tracking-wider bg-secondary/10">
-                          Lugares
-                        </p>
-                        {placeResults.map((place) => (
-                          <button
-                            key={place.id}
-                            onClick={() => {
-                              focusPoint({ lat: place.lat, lng: place.lng }, { zoom: 16, sheetWillBeHalf: false });
-                              setPin(new LngLat(place.lng, place.lat));
-                              setSelectedResult(place);
-                              setShowResults(false);
-                            }}
-                            className="w-full text-left px-4 py-3 hover:bg-white/5 transition-colors"
-                          >
-                            <div className="flex items-start gap-3">
-                              <BiMap className="text-secondary mt-0.5 flex-shrink-0" />
-                              <div className="flex-1 min-w-0">
-                                <p className="font-semibold text-white truncate">{place.name}</p>
-                                {place.address && (
-                                  <p className="text-xs text-white/50 truncate">
-                                    {[place.address.city, place.address.state]
-                                      .filter(Boolean)
-                                      .join(', ')}
-                                  </p>
-                                )}
-                                <div className="flex items-center gap-2 mt-1">
-                                  <span className="text-xs text-white/40 capitalize">
-                                    {place.type}
-                                  </span>
-                                  {place.distance_m && (
-                                    <>
-                                      <span className="text-xs text-white/30">•</span>
-                                      <span className="text-xs text-white/40">
-                                        {place.distance_m < 1000
-                                          ? `${Math.round(place.distance_m)}m`
-                                          : `${(place.distance_m / 1000).toFixed(1)}km`}
-                                      </span>
-                                    </>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-                          </button>
-                        ))}
-                      </div>
-                    )}
+                    {orderedSections.map((section) => {
+                      if (section.items.length === 0) return null;
 
-                    {/* Rutas */}
-                    {filteredRoutes?.length > 0 && (
-                      <div>
-                        <p className="px-4 py-2 text-xs font-semibold text-secondary uppercase tracking-wider bg-secondary/10">
-                          Rutas de Transporte
-                        </p>
-                        {filteredRoutes.map((ruta) => (
-                          <div
-                            key={ruta.codigo}
-                            onClick={() => handleClick(ruta.nombre, 'ROUTE', ruta.codigo)}
-                            className="group px-4 py-3 cursor-pointer border-b border-white/5 last:border-0 hover:bg-white/5 transition-colors"
-                          >
-                            <div className="flex justify-between items-center">
-                              <div className="flex items-center gap-3">
-                                <RouteCodeBadge 
-                                  code={ruta.nombre.replace('Ruta ', '').split(' ')[0]} 
-                                  subtipo={ruta.subtipo}
-                                  size="sm"
-                                />
-                                <div>
-                                  <p className="font-semibold text-white group-hover:text-secondary transition-colors">
-                                    {ruta.nombre}
-                                  </p>
-                                  <p className="text-xs text-white/50">
-                                    {ruta.tipo === 'POR AUTOBUS' ? 'Bus' : 'Micro'} • {ruta.departamento}
-                                  </p>
+                      return (
+                        <div key={section.key}>
+                          <p className="px-4 py-2 text-xs font-semibold text-secondary uppercase tracking-wider bg-secondary/10">
+                            {section.label}
+                          </p>
+
+                          {section.key === 'places' && visiblePlaceResults.map((place) => (
+                            <button
+                              key={place.id}
+                              onClick={() => {
+                                focusPoint({ lat: place.lat, lng: place.lng }, { zoom: 16, sheetWillBeHalf: false });
+                                setPin(new LngLat(place.lng, place.lat));
+                                setSelectedResult(place);
+                                setShowResults(false);
+                              }}
+                              className="w-full text-left px-4 py-3 hover:bg-white/5 transition-colors"
+                            >
+                              <div className="flex items-start gap-3">
+                                <BiMap className="text-secondary mt-0.5 flex-shrink-0" />
+                                <div className="flex-1 min-w-0">
+                                  <p className="font-semibold text-white truncate">{place.name}</p>
+                                  {place.address && (
+                                    <p className="text-xs text-white/50 truncate">
+                                      {[place.address.city, place.address.state]
+                                        .filter(Boolean)
+                                        .join(', ')}
+                                    </p>
+                                  )}
+                                  <div className="flex items-center gap-2 mt-1">
+                                    <span className="text-xs text-white/40 capitalize">
+                                      {place.type}
+                                    </span>
+                                    {place.distance_m && (
+                                      <>
+                                        <span className="text-xs text-white/30">•</span>
+                                        <span className="text-xs text-white/40">
+                                          {place.distance_m < 1000
+                                            ? `${Math.round(place.distance_m)}m`
+                                            : `${(place.distance_m / 1000).toFixed(1)}km`}
+                                        </span>
+                                      </>
+                                    )}
+                                  </div>
                                 </div>
                               </div>
-                              <BiBus className="text-white/20 group-hover:text-secondary" />
+                            </button>
+                          ))}
+
+                          {section.key === 'routes' && visibleRoutes.map((ruta) => (
+                            <div
+                              key={ruta.codigo}
+                              onClick={() => handleClick(ruta.nombre, 'ROUTE', ruta.codigo)}
+                              className="group px-4 py-3 cursor-pointer border-b border-white/5 last:border-0 hover:bg-white/5 transition-colors"
+                            >
+                              <div className="flex justify-between items-center">
+                                <div className="flex items-center gap-3">
+                                  <RouteCodeBadge
+                                    code={ruta.nombre.replace('Ruta ', '').split(' ')[0]}
+                                    subtipo={ruta.subtipo}
+                                    size="sm"
+                                  />
+                                  <div>
+                                    <p className="font-semibold text-white group-hover:text-secondary transition-colors">
+                                      {ruta.nombre}
+                                    </p>
+                                    <p className="text-xs text-white/50">
+                                      {ruta.tipo === 'POR AUTOBUS' ? 'Bus' : 'Micro'} • {ruta.departamento}
+                                    </p>
+                                  </div>
+                                </div>
+                                <BiBus className="text-white/20 group-hover:text-secondary" />
+                              </div>
                             </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
+                          ))}
+                        </div>
+                      );
+                    })}
                   </div>
                 ) : (
                   <div className="p-8 text-center">
