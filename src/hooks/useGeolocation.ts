@@ -11,7 +11,7 @@ interface GeolocationState {
   location: { lat: number; lng: number } | null;
   error: GeolocationPositionError | null;
   loading: boolean;
-  permissionState: PermissionState | 'unsupported' | null;
+  permissionState: PermissionState | 'unsupported' | 'no-api' | null;
 }
 
 interface UseGeolocationOptions {
@@ -63,6 +63,7 @@ export const useGeolocation = (options: UseGeolocationOptions = {}) => {
     }
 
     if (!navigator.permissions) {
+      setState((prev) => ({ ...prev, permissionState: 'no-api' }));
       return;
     }
 
@@ -86,7 +87,7 @@ export const useGeolocation = (options: UseGeolocationOptions = {}) => {
   useEffect(() => {
     if (!watch || !navigator.geolocation) return;
 
-    if (state.permissionState === 'denied') return;
+    if (state.permissionState !== 'granted' && state.permissionState !== 'no-api') return;
 
     const successCallback = (position: GeolocationPosition) => {
       const location = {

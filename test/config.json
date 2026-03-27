@@ -1,28 +1,3 @@
 {
-  "status": "commited",
-  "type": "frontend",
-  "scope": "codebase",
-  "localEndpoint": "http://localhost:4173",
-  "executionArgs": {
-    "projectName": "web",
-    "projectPath": "/home/devel/chivomap/web",
-    "testIds": [
-      "a74a9c53-fdd7-4eb3-80ed-dace0fb3408a",
-      "5a7d3a7b-1b2e-4020-a7e0-c1cc8732bd3f",
-      "645a1ece-ee7f-4632-9d3e-a037cd8fe158",
-      "eef4334f-2c82-4cae-8ff6-414622701f89",
-      "b437efbf-f826-4dc2-a793-0872016911df",
-      "6fd48c52-8057-4c16-9898-8b28f7405efe",
-      "b95a8c8a-b48e-4e5a-8f7b-e2ea4505891d",
-      "41bef10f-eb64-475e-8900-a0e0b5371a9f",
-      "1780f1bc-b3e3-4f34-87c2-f43e8a7e6a02"
-    ],
-    "additionalInstruction": "CRITICAL CONTEXT ABOUT THIS APP - READ CAREFULLY:\n\nThis is a MapLibre GL (WebGL canvas) mapping app running on localhost:5173. The map renders on a canvas element - you CANNOT interact with map features (polylines, polygons, markers) via DOM clicks on the canvas. Focus tests on DOM-based UI elements only.\n\n## SEARCH (TC002):\n- Search input: input with placeholder \"Buscar rutas, hospitales, restaurantes...\"\n- Results dropdown has TWO sections with headers:\n  - \"Lugares\" (places section, p tag with class text-secondary uppercase)\n  - \"Rutas de Transporte\" (routes section, same styling)\n- Route results are div.group elements with: RouteCodeBadge (colored badge), route name (p.font-semibold.text-white), and type+department below\n- Clicking a route result opens the bottom sheet with RouteInfo\n- To test TC002: type \"42\" in search, wait for results, look for \"Rutas de Transporte\" header, click the route result div that contains \"42\", then verify the bottom sheet opens with route info (look for \"Ruta\" text, \"Ida\"/\"Regreso\" buttons, \"Paradas de esta ruta\" text, km distance)\n\n## ROUTE DETAIL BOTTOM SHEET (TC022, TC024, TC025):\n- Bottom sheet container: div.fixed.inset-x-0.bottom-0 with bg-primary/95\n- RouteInfo shows: h3 with \"Ruta {name}\", type \"Autobús\"/\"Microbús\"\n- Direction toggle: two buttons with text \"Ida\" and \"Regreso\" inside a grid\n- Active direction button has classes: bg-secondary/20 border-secondary/40 text-secondary\n- Stops section: h4 with text \"Paradas de esta ruta\" followed by count\n- Each parada: button with parada.nombre and department text\n- To test direction toggle: after opening route detail, find buttons with text \"Ida\" or \"Regreso\" and click them, then verify paradas list updates\n\n## PIN PLACEMENT (TC012):\n- Pins are placed via RIGHT-CLICK on map (context menu) or long-press on mobile\n- Right-click shows a fixed menu (z-[71]) with options: \"Colocar pin aquí\", \"Buscar rutas y paradas\", \"Copiar coordenadas\"\n- DO NOT try to click the canvas to place pins - use page.mouse.click with button='right' at center of canvas\n- After placing pin, a pin controls button appears at top-right with \"Buscar rutas aquí\" option\n- The pin marker is an SVG image rendered via React MapGL Marker component\n\n## GEOGRAPHIC EXPLORATION (TC016, TC018, TC019, TC020):\n- The departamento/municipio exploration uses MapLibre vector layers rendered on the canvas\n- Navigation breadcrumb: positioned absolute top-4 left-4 z-20, shows path like \"Departamento > Municipios\"\n- Back button text: \"Volver a {departamento_name}\" with left arrow\n- PlaceInfo in bottom sheet shows: place name, place type, department\n- IMPORTANT: To navigate to geographic views, you need to interact with the map canvas which is WebGL - these tests may need to use the search to navigate to a location first, or look for breadcrumb/navigation UI elements\n- For TC016: Instead of looking for a \"carousel\", check if there's geographic layer interaction. The geo exploration starts when zooming into a departamento area on the map.\n- For TC019 PlaceInfo: The bottom sheet shows region info with properties like name (NAM), municipality (M), department (D)\n- For TC020: Look for button containing \"Volver a\" text to navigate back\n\n## GENERAL RULES:\n1. Wait at least 3-5 seconds after page load for MapLibre to render\n2. Never assert for literal text like \"route polyline\" or \"bus stop markers on the map\" - these don't exist in the DOM\n3. Use text content selectors: page.locator('text=Paradas de esta ruta'), page.locator('text=Ida'), page.locator('text=Regreso')\n4. The bottom sheet uses backdrop-blur and bg-primary/95 styling\n5. Search results appear in a dropdown with max-h-[60vh] overflow-y-auto\n6. For canvas-based features (polygons, polylines), you cannot assert DOM visibility - skip those assertions\n7. Default timeout should be 10000ms, not 5000ms - the app loads map tiles which takes time\n8. Use page.get_by_text() or page.locator('text=...') for finding elements by visible text rather than fragile XPath selectors",
-    "serverMode": "development",
-    "envs": {
-      "API_KEY": "sk-user-5jjP1-q9_Uzj8FnLnaYkCPrVOwOafeWsWiPOckfWqZjyjHmSYVNGIA1gIN2xZ7AVYZ3XjzQU4Osef8lBZPm_2pY0uqMq5YPICpLtU9Gx5p-TiM-XFiy6YZam7GZpQBdbu5s"
-    }
-  },
-  "serverPort": 33299,
-  "proxy": "http://c94f5296-69ee-45cd-9ab2-2ec0c612bdf2:nDVQ1ueLWmEanqEsDpuR8yjeusiKucl3@tun.testsprite.com:8080"
+  "localEndpoint": "http://localhost:4173"
 }
