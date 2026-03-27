@@ -30,8 +30,14 @@ async def run_test():
         await search_input.fill('     ')
         await asyncio.sleep(2)
 
-        current_url = await page.evaluate("() => window.location.href")
-        assert current_url is not None, "Test completed successfully"
+        # Whitespace-only query should NOT produce any search results
+        route_results = page.locator('form [class*="overflow-y-auto"] div.group')
+        assert await route_results.count() == 0, \
+            "Expected no route results for whitespace-only query"
+
+        place_results = page.locator('form [class*="overflow-y-auto"] [class*="overflow-y-auto"] button')
+        assert await place_results.count() == 0, \
+            "Expected no place results for whitespace-only query"
         await asyncio.sleep(3)
 
     finally:

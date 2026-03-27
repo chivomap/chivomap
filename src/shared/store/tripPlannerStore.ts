@@ -40,8 +40,14 @@ export const useTripPlannerStore = create<TripPlannerState>((set, get) => ({
   setTripPlan: (plan) => set({ tripPlan: plan }),
   setSelectedOptionIndex: (index) => set({ selectedOptionIndex: index }),
   setFocusedLegIndex: (index) => set({ focusedLegIndex: index }),
-  setIsSelectingOrigin: (selecting) => set({ isSelectingOrigin: selecting }),
-  setIsSelectingDestination: (selecting) => set({ isSelectingDestination: selecting }),
+  setIsSelectingOrigin: (selecting) => set({
+    isSelectingOrigin: selecting,
+    ...(selecting && { isSelectingDestination: false }),
+  }),
+  setIsSelectingDestination: (selecting) => set({
+    isSelectingDestination: selecting,
+    ...(selecting && { isSelectingOrigin: false }),
+  }),
   setFocusedInput: (input) => set({ focusedInput: input }),
   
   swapLocations: () => {

@@ -31,7 +31,7 @@ export const TripPlannerMapListener: React.FC = () => {
       const coords = `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
 
       // Determinar si es origen o destino
-      const isOrigin = !isSelectingDestination && (isSelectingOrigin || focusedInput === 'origin');
+      const isOrigin = isSelectingOrigin || (!isSelectingDestination && focusedInput === 'origin');
       const setter = isOrigin ? setOrigin : setDestination;
 
       // Poner coordenadas inmediatamente y cerrar modos de selección
@@ -66,7 +66,7 @@ export const TripPlannerMapListener: React.FC = () => {
       map.off('click', handleClick);
       map.getCanvas().style.cursor = '';
     };
-  }, [map, isActive, isExplicitSelecting, isSelectingOrigin, focusedInput, setOrigin, setDestination, setIsSelectingOrigin, setIsSelectingDestination, setFocusedInput, setSheetState]);
+  }, [map, isActive, isExplicitSelecting, isSelectingOrigin, isSelectingDestination, focusedInput, setOrigin, setDestination, setIsSelectingOrigin, setIsSelectingDestination, setFocusedInput, setSheetState]);
 
   return null;
 };
