@@ -28,3 +28,10 @@ dist-ssr
 .env.production
 .env.staging
 .kiro
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
