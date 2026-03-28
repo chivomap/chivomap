@@ -7,7 +7,7 @@ import { getWalkRoute, type WalkRouteResponse } from '../../../api/routing';
 import type { RutaDetailResponse, RutaFeature } from '../../../types/rutas';
 import type { TripLeg } from '../../../types/trip';
 import { env } from '../../../config/env';
-import { MdDirectionsBus, MdDirectionsWalk, MdSwapHoriz } from 'react-icons/md';
+import { MdDirectionsBus, MdSwapHoriz } from 'react-icons/md';
 
 const pointDistanceMeters = (a: { lat: number; lng: number }, b: [number, number]) => {
   const toRad = (deg: number) => (deg * Math.PI) / 180;
@@ -54,17 +54,94 @@ const flattenGeometryCoords = (geometry: Geometry): [number, number][] => {
   return [];
 };
 
-const closestCoordIndex = (coords: [number, number][], point: { lat: number; lng: number }) => {
-  let bestIdx = 0;
-  let bestDist = Number.MAX_SAFE_INTEGER;
-  coords.forEach((coord, idx) => {
-    const d = pointDistanceMeters(point, coord);
-    if (d < bestDist) {
-      bestDist = d;
-      bestIdx = idx;
+// Proyección sobre polilínea: devuelve distancia acumulada (metros) y punto proyectado
+const projectAlongLine = (coords: [number, number][], point: { lat: number; lng: number }): { along: number; coord: [number, number] } | null => {
+  if (coords.length < 2) return null;
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const cosLat = Math.cos(toRad(point.lat));
+  const px = (point.lng * cosLat * 111320);
+  const py = (point.lat * 111320);
+
+  let bestDist = Infinity;
+  let bestAlong = 0;
+  let bestCoord: [number, number] = coords[0];
+  let cumulative = 0;
+
+  for (let i = 0; i < coords.length - 1; i++) {
+    const ax = coords[i][0] * cosLat * 111320;
+    const ay = coords[i][1] * 111320;
+    const bx = coords[i + 1][0] * cosLat * 111320;
+    const by = coords[i + 1][1] * 111320;
+    const dx = bx - ax;
+    const dy = by - ay;
+    const segLen = Math.hypot(dx, dy);
+    if (segLen === 0) { cumulative += segLen; continue; }
+
+    let t = ((px - ax) * dx + (py - ay) * dy) / (dx * dx + dy * dy);
+    t = Math.max(0, Math.min(1, t));
+
+    const cx = ax + t * dx;
+    const cy = ay + t * dy;
+    const dist = Math.hypot(px - cx, py - cy);
+
+    if (dist < bestDist) {
+      bestDist = dist;
+      bestAlong = cumulative + t * segLen;
+      bestCoord = [
+        coords[i][0] + t * (coords[i + 1][0] - coords[i][0]),
+        coords[i][1] + t * (coords[i + 1][1] - coords[i][1]),
+      ];
     }
-  });
-  return bestIdx;
+    cumulative += segLen;
+  }
+
+  return { along: bestAlong, coord: bestCoord };
+};
+
+// Corta una polilínea entre dos distancias (metros), interpolando extremos
+const cutLineByDistance = (coords: [number, number][], startM: number, endM: number): [number, number][] => {
+  if (coords.length < 2) return [];
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const cosLat = Math.cos(toRad(coords[0][1]));
+
+  const result: [number, number][] = [];
+  let cumulative = 0;
+
+  for (let i = 0; i < coords.length - 1; i++) {
+    const dx = (coords[i + 1][0] - coords[i][0]) * cosLat * 111320;
+    const dy = (coords[i + 1][1] - coords[i][1]) * 111320;
+    const segLen = Math.hypot(dx, dy);
+    const nextCumulative = cumulative + segLen;
+
+    if (nextCumulative <= startM) { cumulative = nextCumulative; continue; }
+    if (cumulative >= endM) break;
+
+    if (result.length === 0) {
+      if (cumulative < startM && segLen > 0) {
+        const t = (startM - cumulative) / segLen;
+        result.push([
+          coords[i][0] + t * (coords[i + 1][0] - coords[i][0]),
+          coords[i][1] + t * (coords[i + 1][1] - coords[i][1]),
+        ]);
+      } else {
+        result.push(coords[i]);
+      }
+    }
+
+    if (nextCumulative >= endM && segLen > 0) {
+      const t = (endM - cumulative) / segLen;
+      result.push([
+        coords[i][0] + t * (coords[i + 1][0] - coords[i][0]),
+        coords[i][1] + t * (coords[i + 1][1] - coords[i][1]),
+      ]);
+      break;
+    }
+
+    result.push(coords[i + 1]);
+    cumulative = nextCumulative;
+  }
+
+  return result;
 };
 
 const reverseGeometry = (geometry: Geometry): Geometry => {
@@ -96,11 +173,11 @@ const orientGeometryToLeg = (geometry: Geometry, leg: TripLeg): Geometry => {
   const coords = flattenGeometryCoords(geometry);
   if (coords.length < 2) return geometry;
 
-  const fromIdx = closestCoordIndex(coords, leg.from);
-  const toIdx = closestCoordIndex(coords, leg.to);
+  const fromProj = projectAlongLine(coords, leg.from);
+  const toProj = projectAlongLine(coords, leg.to);
+  if (!fromProj || !toProj) return geometry;
 
-  if (fromIdx <= toIdx) return geometry;
-
+  if (fromProj.along <= toProj.along) return geometry;
   return reverseGeometry(geometry);
 };
 
@@ -121,14 +198,26 @@ const splitGeometryByLeg = (geometry: Geometry, leg: TripLeg): SplitSegments => 
   const coords = oriented.coordinates as [number, number][];
   if (coords.length < 2) return { active: oriented, inactiveBefore: null, inactiveAfter: null };
 
-  const fromIdx = closestCoordIndex(coords, leg.from);
-  const toIdx = closestCoordIndex(coords, leg.to);
-  const start = Math.min(fromIdx, toIdx);
-  const end = Math.max(fromIdx, toIdx);
+  const fromProj = projectAlongLine(coords, leg.from);
+  const toProj = projectAlongLine(coords, leg.to);
+  if (!fromProj || !toProj) return { active: oriented, inactiveBefore: null, inactiveAfter: null };
 
-  const activeCoords = coords.slice(start, end + 1);
-  const beforeCoords = start > 0 ? coords.slice(0, start + 1) : null;
-  const afterCoords = end < coords.length - 1 ? coords.slice(end) : null;
+  const startM = Math.min(fromProj.along, toProj.along);
+  const endM = Math.max(fromProj.along, toProj.along);
+
+  // Calcular distancia total de la línea para los cortes inactivos
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const cosLat = Math.cos(toRad(coords[0][1]));
+  let totalLen = 0;
+  for (let i = 0; i < coords.length - 1; i++) {
+    const dx = (coords[i + 1][0] - coords[i][0]) * cosLat * 111320;
+    const dy = (coords[i + 1][1] - coords[i][1]) * 111320;
+    totalLen += Math.hypot(dx, dy);
+  }
+
+  const activeCoords = cutLineByDistance(coords, startM, endM);
+  const beforeCoords = startM > 0 ? cutLineByDistance(coords, 0, startM) : null;
+  const afterCoords = endM < totalLen ? cutLineByDistance(coords, endM, totalLen) : null;
 
   return {
     active: activeCoords.length >= 2 ? { type: 'LineString', coordinates: activeCoords } : oriented,
@@ -280,10 +369,10 @@ export const TripRouteLayer: React.FC<{ selectedOptionIndex: number | null }> = 
 
         // Si el backend ya envió la geometría recortada, usarla directamente
         if (leg.geometry && leg.geometry.coordinates.length >= 2) {
-          const backendGeom: Geometry = {
-            type: 'LineString',
+          const backendGeom = {
+            type: leg.geometry.type,
             coordinates: leg.geometry.coordinates,
-          };
+          } as unknown as Geometry;
 
           features.push({
             type: 'Feature' as const,
