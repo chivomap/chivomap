@@ -43,6 +43,10 @@ export const TripPlannerSheet: React.FC = () => {
   const [planError, setPlanError] = useState<string | null>(null);
   const nearbyPlacesTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const blurTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const originSearchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const destSearchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const originSearchVersion = useRef(0);
+  const destSearchVersion = useRef(0);
   const { getLocation } = useCurrentLocation();
   const { showError } = useErrorStore();
   const hasAutoFilledOrigin = useRef(false);
@@ -181,10 +185,12 @@ export const TripPlannerSheet: React.FC = () => {
     };
   }, [config.center.lat, config.center.lng]);
 
-  const handleOriginSearch = async (value: string) => {
+  const handleOriginSearch = (value: string) => {
     setOriginInput(value);
+    if (originSearchTimer.current) { clearTimeout(originSearchTimer.current); originSearchTimer.current = null; }
+    setIsSearchingOrigin(false);
     if (value.length < 2) {
-      setOriginSuggestions([]);
+      cancelOriginSearch();
       if (value.trim() === '') {
         setOrigin(null);
         setTripPlan(null);
@@ -192,21 +198,30 @@ export const TripPlannerSheet: React.FC = () => {
       }
       return;
     }
-    setIsSearchingOrigin(true);
-    try {
-      const response = await searchPlaces({ query: value, lat: config.center.lat, lng: config.center.lng });
-      setOriginSuggestions(response.results.slice(0, 5));
-    } catch (error) {
-      console.error('Error searching:', error);
-    } finally {
-      setIsSearchingOrigin(false);
-    }
+    const version = ++originSearchVersion.current;
+    originSearchTimer.current = setTimeout(async () => {
+      setIsSearchingOrigin(true);
+      try {
+        const response = await searchPlaces({ query: value, lat: config.center.lat, lng: config.center.lng });
+        if (originSearchVersion.current === version) {
+          setOriginSuggestions(response.results.slice(0, 5));
+        }
+      } catch (error) {
+        console.error('Error searching:', error);
+      } finally {
+        if (originSearchVersion.current === version) {
+          setIsSearchingOrigin(false);
+        }
+      }
+    }, 600);
   };
 
-  const handleDestinationSearch = async (value: string) => {
+  const handleDestinationSearch = (value: string) => {
     setDestinationInput(value);
+    if (destSearchTimer.current) { clearTimeout(destSearchTimer.current); destSearchTimer.current = null; }
+    setIsSearchingDestination(false);
     if (value.length < 2) {
-      setDestinationSuggestions([]);
+      cancelDestSearch();
       if (value.trim() === '') {
         setDestination(null);
         setTripPlan(null);
@@ -214,15 +229,36 @@ export const TripPlannerSheet: React.FC = () => {
       }
       return;
     }
-    setIsSearchingDestination(true);
-    try {
-      const response = await searchPlaces({ query: value, lat: config.center.lat, lng: config.center.lng });
-      setDestinationSuggestions(response.results.slice(0, 5));
-    } catch (error) {
-      console.error('Error searching:', error);
-    } finally {
-      setIsSearchingDestination(false);
-    }
+    const version = ++destSearchVersion.current;
+    destSearchTimer.current = setTimeout(async () => {
+      setIsSearchingDestination(true);
+      try {
+        const response = await searchPlaces({ query: value, lat: config.center.lat, lng: config.center.lng });
+        if (destSearchVersion.current === version) {
+          setDestinationSuggestions(response.results.slice(0, 5));
+        }
+      } catch (error) {
+        console.error('Error searching:', error);
+      } finally {
+        if (destSearchVersion.current === version) {
+          setIsSearchingDestination(false);
+        }
+      }
+    }, 600);
+  };
+
+  const cancelOriginSearch = () => {
+    ++originSearchVersion.current;
+    if (originSearchTimer.current) { clearTimeout(originSearchTimer.current); originSearchTimer.current = null; }
+    setIsSearchingOrigin(false);
+    setOriginSuggestions([]);
+  };
+
+  const cancelDestSearch = () => {
+    ++destSearchVersion.current;
+    if (destSearchTimer.current) { clearTimeout(destSearchTimer.current); destSearchTimer.current = null; }
+    setIsSearchingDestination(false);
+    setDestinationSuggestions([]);
   };
 
   const getCurrentLocation = async (isOrigin: boolean) => {
@@ -326,7 +362,7 @@ export const TripPlannerSheet: React.FC = () => {
                 type="text"
                 value={originInput}
                 onChange={(e) => handleOriginSearch(e.target.value)}
-                onFocus={() => { if (blurTimerRef.current) { clearTimeout(blurTimerRef.current); blurTimerRef.current = null; } setFocusedInput('origin'); }}
+                onFocus={(e) => { if (blurTimerRef.current) { clearTimeout(blurTimerRef.current); blurTimerRef.current = null; } setFocusedInput('origin'); e.target.select(); }}
                 onBlur={() => { blurTimerRef.current = setTimeout(() => setFocusedInput(null), 200); }}
                 placeholder="Origen"
                 className="flex-1 bg-transparent text-white placeholder-white/40 focus:outline-none"
@@ -368,7 +404,7 @@ export const TripPlannerSheet: React.FC = () => {
                 type="text"
                 value={destinationInput}
                 onChange={(e) => handleDestinationSearch(e.target.value)}
-                onFocus={() => { if (blurTimerRef.current) { clearTimeout(blurTimerRef.current); blurTimerRef.current = null; } setFocusedInput('destination'); }}
+                onFocus={(e) => { if (blurTimerRef.current) { clearTimeout(blurTimerRef.current); blurTimerRef.current = null; } setFocusedInput('destination'); e.target.select(); }}
                 onBlur={() => { blurTimerRef.current = setTimeout(() => setFocusedInput(null), 200); }}
                 placeholder="Destino"
                 className="flex-1 bg-transparent text-white placeholder-white/40 focus:outline-none"
@@ -411,8 +447,8 @@ export const TripPlannerSheet: React.FC = () => {
                   <button
                     key={idx}
                     onClick={() => {
+                      cancelOriginSearch();
                       setOrigin({ lat: place.lat, lng: place.lng, name: place.name });
-                      setOriginSuggestions([]);
                     }}
                     className="w-full px-3 py-2 text-left hover:bg-white/10 rounded-lg transition-colors"
                   >
@@ -422,8 +458,8 @@ export const TripPlannerSheet: React.FC = () => {
                 ))}
                 <button
                   onClick={() => {
+                    cancelOriginSearch();
                     setIsSelectingOrigin(true);
-                    setOriginSuggestions([]);
                   }}
                   className="w-full px-3 py-2 text-left hover:bg-white/10 rounded-lg transition-colors text-secondary text-sm font-medium"
                 >
@@ -438,8 +474,8 @@ export const TripPlannerSheet: React.FC = () => {
                   <button
                     key={idx}
                     onClick={() => {
+                      cancelDestSearch();
                       setDestination({ lat: place.lat, lng: place.lng, name: place.name });
-                      setDestinationSuggestions([]);
                     }}
                     className="w-full px-3 py-2 text-left hover:bg-white/10 rounded-lg transition-colors"
                   >
@@ -449,8 +485,8 @@ export const TripPlannerSheet: React.FC = () => {
                 ))}
                 <button
                   onClick={() => {
+                    cancelDestSearch();
                     setIsSelectingDestination(true);
-                    setDestinationSuggestions([]);
                   }}
                   className="w-full px-3 py-2 text-left hover:bg-white/10 rounded-lg transition-colors text-secondary text-sm font-medium"
                 >
@@ -467,8 +503,10 @@ export const TripPlannerSheet: React.FC = () => {
                       key={idx}
                       onClick={() => {
                         if (!origin) {
+                          cancelOriginSearch();
                           setOrigin({ lat: place.lat, lng: place.lng, name: place.name });
                         } else if (!destination) {
+                          cancelDestSearch();
                           setDestination({ lat: place.lat, lng: place.lng, name: place.name });
                         }
                       }}
