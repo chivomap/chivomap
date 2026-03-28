@@ -6,6 +6,11 @@ export interface Location {
   name?: string;
 }
 
+export interface LegGeometry {
+  type: string;
+  coordinates: [number, number][];
+}
+
 export interface TripLeg {
   type: 'walk' | 'bus';
   from: Location;
@@ -17,6 +22,7 @@ export interface TripLeg {
   direction?: 'IDA' | 'REGRESO';
   from_stop?: Parada;
   to_stop?: Parada;
+  geometry?: LegGeometry;
   instructions?: string;
 }
 
