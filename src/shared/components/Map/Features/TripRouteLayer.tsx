@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Source, Layer, Marker } from 'react-map-gl/maplibre';
+import { Source, Layer, Marker, Popup, useMap } from 'react-map-gl/maplibre';
 import type { FeatureCollection, Geometry } from 'geojson';
 import { useTripPlannerStore } from '../../../store/tripPlannerStore';
 import { getRouteByCode } from '../../../services/GetRutasData';
@@ -7,6 +7,7 @@ import { getWalkRoute, type WalkRouteResponse } from '../../../api/routing';
 import type { RutaDetailResponse, RutaFeature } from '../../../types/rutas';
 import type { TripLeg } from '../../../types/trip';
 import { env } from '../../../config/env';
+import { MdDirectionsBus, MdDirectionsWalk, MdSwapHoriz } from 'react-icons/md';
 
 const pointDistanceMeters = (a: { lat: number; lng: number }, b: [number, number]) => {
   const toRad = (deg: number) => (deg * Math.PI) / 180;
@@ -103,6 +104,69 @@ const orientGeometryToLeg = (geometry: Geometry, leg: TripLeg): Geometry => {
   return reverseGeometry(geometry);
 };
 
+interface SplitSegments {
+  active: Geometry;
+  inactiveBefore: Geometry | null;
+  inactiveAfter: Geometry | null;
+}
+
+const splitGeometryByLeg = (geometry: Geometry, leg: TripLeg): SplitSegments => {
+  const oriented = orientGeometryToLeg(geometry, leg);
+
+  // MultiLineString tiene sub-líneas desconectadas — splitearlas produce artefactos visuales
+  if (oriented.type !== 'LineString') {
+    return { active: oriented, inactiveBefore: null, inactiveAfter: null };
+  }
+
+  const coords = oriented.coordinates as [number, number][];
+  if (coords.length < 2) return { active: oriented, inactiveBefore: null, inactiveAfter: null };
+
+  const fromIdx = closestCoordIndex(coords, leg.from);
+  const toIdx = closestCoordIndex(coords, leg.to);
+  const start = Math.min(fromIdx, toIdx);
+  const end = Math.max(fromIdx, toIdx);
+
+  const activeCoords = coords.slice(start, end + 1);
+  const beforeCoords = start > 0 ? coords.slice(0, start + 1) : null;
+  const afterCoords = end < coords.length - 1 ? coords.slice(end) : null;
+
+  return {
+    active: activeCoords.length >= 2 ? { type: 'LineString', coordinates: activeCoords } : oriented,
+    inactiveBefore: beforeCoords && beforeCoords.length >= 2 ? { type: 'LineString', coordinates: beforeCoords } : null,
+    inactiveAfter: afterCoords && afterCoords.length >= 2 ? { type: 'LineString', coordinates: afterCoords } : null,
+  };
+};
+
+const createFadeSegments = (
+  coords: [number, number][],
+  direction: 'fadeIn' | 'fadeOut',
+  baseProps: Record<string, any>,
+  steps = 5,
+): any[] => {
+  if (coords.length < 2) return [];
+  const features: any[] = [];
+  const segLen = Math.max(2, Math.ceil(coords.length / steps));
+
+  for (let i = 0; i < steps; i++) {
+    const start = i * segLen;
+    const end = Math.min(start + segLen + 1, coords.length);
+    const slice = coords.slice(start, end);
+    if (slice.length < 2) continue;
+
+    const t = i / Math.max(1, steps - 1);
+    const opacity = direction === 'fadeOut'
+      ? 0.55 * (1 - t)
+      : 0.55 * t;
+
+    features.push({
+      type: 'Feature',
+      geometry: { type: 'LineString', coordinates: slice },
+      properties: { ...baseProps, fadeOpacity: Math.max(0.05, opacity) },
+    });
+  }
+  return features;
+};
+
 const selectBestVariant = (routes: RutaFeature[], leg: TripLeg, direction: 'IDA' | 'REGRESO' | null) => {
   let best = routes[0];
   let bestScore = Number.MAX_SAFE_INTEGER;
@@ -133,6 +197,11 @@ export const TripRouteLayer: React.FC<{ selectedOptionIndex: number | null }> = 
   const [walkFeatures, setWalkFeatures] = useState<FeatureCollection | null>(null);
   const routeCacheRef = useRef<Map<string, RutaDetailResponse>>(new Map());
   const walkCacheRef = useRef<Map<string, WalkRouteResponse>>(new Map());
+  const { current: mapRef } = useMap();
+  const [routeLabels, setRouteLabels] = useState<Array<{ lng: number; lat: number; routeCode: string; color: string }>>([]);
+  const [inactivePopup, setInactivePopup] = useState<{
+    lng: number; lat: number; routeName: string;
+  } | null>(null);
 
   const normalizeDirection = (value?: string) => {
     if (!value) return null;
@@ -150,9 +219,9 @@ export const TripRouteLayer: React.FC<{ selectedOptionIndex: number | null }> = 
     return null;
   };
 
-  const busPalette = ['#10b981', '#f59e0b', '#3b82f6', '#ef4444'];
+  const busPalette = ['#6366f1', '#0ea5e9', '#14b8a6', '#f59e0b'];
 
-  const walkPalette = ['#60a5fa', '#38bdf8'];
+  const walkPalette = ['#94a3b8', '#94a3b8'];
 
   useEffect(() => {
     let cancelled = false;
@@ -160,6 +229,8 @@ export const TripRouteLayer: React.FC<{ selectedOptionIndex: number | null }> = 
     const loadBusRoutes = async () => {
       // Limpiar render anterior al cambiar de opcion para evitar solapamiento visual
       setBusFeatures(null);
+      setRouteLabels([]);
+      setInactivePopup(null);
 
       if (!option) {
         return;
@@ -196,53 +267,110 @@ export const TripRouteLayer: React.FC<{ selectedOptionIndex: number | null }> = 
         })
       );
 
-      const features = busLegs.map((leg) => {
+      const features: any[] = [];
+      const labels: typeof routeLabels = [];
+
+      busLegs.forEach((leg) => {
         const detail = detailMap.get(leg.route_code as string);
         const direction = resolveDirection(leg);
         const color = busPalette[leg._index % busPalette.length];
         const isActive = focusedLegIndex === null || focusedLegIndex === leg._index;
+        const routeName = leg.route_name || `Ruta ${leg.route_code}`;
+        const labelText = routeName.startsWith('Ruta') ? routeName : `Ruta ${routeName}`;
 
-        if (detail && detail.routes.length > 0) {
+        // Si el backend ya envió la geometría recortada, usarla directamente
+        if (leg.geometry && leg.geometry.coordinates.length >= 2) {
+          const backendGeom: Geometry = {
+            type: 'LineString',
+            coordinates: leg.geometry.coordinates,
+          };
+
+          features.push({
+            type: 'Feature' as const,
+            geometry: backendGeom,
+            properties: { color, routeCode: leg.route_code, routeName, direction, isActive, segmentType: 'active' },
+          });
+
+          // Fade con la ruta completa si tenemos el detalle
+          if (detail && detail.routes.length > 0) {
+            const selected = selectBestVariant(detail.routes, leg, direction);
+            const rawGeometry = selected.geometry as unknown as Geometry;
+            const { inactiveBefore, inactiveAfter } = splitGeometryByLeg(rawGeometry, leg);
+            const inactiveBase = { color, routeCode: leg.route_code, routeName, isActive, segmentType: 'inactive' };
+            const maxHint = Math.max(15, Math.floor(leg.geometry.coordinates.length * 0.25));
+
+            if (inactiveBefore) {
+              const beforeCoords = flattenGeometryCoords(inactiveBefore);
+              const trimmed = beforeCoords.length > maxHint ? beforeCoords.slice(-maxHint) : beforeCoords;
+              features.push(...createFadeSegments(trimmed, 'fadeIn', inactiveBase));
+            }
+            if (inactiveAfter) {
+              const afterCoords = flattenGeometryCoords(inactiveAfter);
+              const trimmed = afterCoords.length > maxHint ? afterCoords.slice(0, maxHint) : afterCoords;
+              features.push(...createFadeSegments(trimmed, 'fadeOut', inactiveBase));
+            }
+          }
+
+          const mid = leg.geometry.coordinates[Math.floor(leg.geometry.coordinates.length / 2)];
+          labels.push({ lng: mid[0], lat: mid[1], routeCode: labelText, color });
+
+        } else if (detail && detail.routes.length > 0) {
+          // Fallback: recortar en frontend (rutas sin geometría del backend)
           const selected = selectBestVariant(detail.routes, leg, direction);
           const rawGeometry = selected.geometry as unknown as Geometry;
-          const orientedGeometry = orientGeometryToLeg(rawGeometry, leg);
+          const { active, inactiveBefore, inactiveAfter } = splitGeometryByLeg(rawGeometry, leg);
 
-          return {
+          features.push({
             type: 'Feature' as const,
-            geometry: orientedGeometry,
+            geometry: active,
             properties: {
               ...selected.properties,
-              color,
-              routeCode: leg.route_code,
-              direction,
-              isActive,
+              color, routeCode: leg.route_code, routeName, direction, isActive,
+              segmentType: 'active',
             },
-          };
-        }
+          });
 
-        return {
-          type: 'Feature' as const,
-          geometry: {
-            type: 'LineString' as const,
-            coordinates: [
-              [leg.from.lng, leg.from.lat],
-              [leg.to.lng, leg.to.lat],
-            ],
-          },
-          properties: {
+          const activeCoords = flattenGeometryCoords(active);
+          const inactiveBase = { color, routeCode: leg.route_code, routeName, isActive, segmentType: 'inactive' };
+          const maxHint = Math.max(15, Math.floor(activeCoords.length * 0.25));
+
+          if (inactiveBefore) {
+            const beforeCoords = flattenGeometryCoords(inactiveBefore);
+            const trimmed = beforeCoords.length > maxHint ? beforeCoords.slice(-maxHint) : beforeCoords;
+            features.push(...createFadeSegments(trimmed, 'fadeIn', inactiveBase));
+          }
+          if (inactiveAfter) {
+            const afterCoords = flattenGeometryCoords(inactiveAfter);
+            const trimmed = afterCoords.length > maxHint ? afterCoords.slice(0, maxHint) : afterCoords;
+            features.push(...createFadeSegments(trimmed, 'fadeOut', inactiveBase));
+          }
+          if (activeCoords.length > 0) {
+            const mid = activeCoords[Math.floor(activeCoords.length / 2)];
+            labels.push({ lng: mid[0], lat: mid[1], routeCode: labelText, color });
+          }
+        } else {
+          // Último fallback: línea recta
+          features.push({
+            type: 'Feature' as const,
+            geometry: {
+              type: 'LineString' as const,
+              coordinates: [[leg.from.lng, leg.from.lat], [leg.to.lng, leg.to.lat]],
+            },
+            properties: { color, routeCode: leg.route_code, routeName, direction, isActive, segmentType: 'active' },
+          });
+
+          labels.push({
+            lng: (leg.from.lng + leg.to.lng) / 2,
+            lat: (leg.from.lat + leg.to.lat) / 2,
+            routeCode: labelText,
             color,
-            routeCode: leg.route_code,
-            direction,
-            isActive,
-          },
-        };
+          });
+        }
       });
 
       if (!cancelled) {
-        setBusFeatures({
-          type: 'FeatureCollection',
-          features,
-        });
+        setBusFeatures({ type: 'FeatureCollection', features });
+        setRouteLabels(labels);
       }
     };
 
@@ -338,22 +466,83 @@ export const TripRouteLayer: React.FC<{ selectedOptionIndex: number | null }> = 
     };
   }, [option, focusedLegIndex]);
 
-  // Paradas de transbordo
-  const transferStops = option
-    ? option.legs
-        .slice(1)
-        .filter((leg, idx) => option.legs[idx].type !== leg.type)
-        .map(leg => leg.from)
-    : [];
+  // Click handler para segmentos inactivos
+  useEffect(() => {
+    if (!mapRef) return;
+
+    const handleInactiveClick = (e: any) => {
+      const feature = e.features?.[0];
+      if (feature?.properties) {
+        setInactivePopup({
+          lng: e.lngLat.lng,
+          lat: e.lngLat.lat,
+          routeName: feature.properties.routeName || `Ruta ${feature.properties.routeCode}`,
+        });
+      }
+    };
+
+    const setCursor = () => { mapRef.getCanvas().style.cursor = 'pointer'; };
+    const resetCursor = () => { mapRef.getCanvas().style.cursor = ''; };
+
+    mapRef.on('click', 'trip-bus-routes-inactive-line', handleInactiveClick);
+    mapRef.on('mouseenter', 'trip-bus-routes-inactive-line', setCursor);
+    mapRef.on('mouseleave', 'trip-bus-routes-inactive-line', resetCursor);
+
+    return () => {
+      mapRef.off('click', 'trip-bus-routes-inactive-line', handleInactiveClick);
+      mapRef.off('mouseenter', 'trip-bus-routes-inactive-line', setCursor);
+      mapRef.off('mouseleave', 'trip-bus-routes-inactive-line', resetCursor);
+    };
+  }, [mapRef]);
+
+  // Puntos de acción: subir al bus, transbordo (bajar+subir)
+  // El "bajar final" no necesita marcador — el destino rojo ya lo comunica
+  const actionPoints = (() => {
+    if (!option) return [];
+    const busLegs = option.legs.filter(l => l.type === 'bus');
+    const points: Array<{
+      type: 'board' | 'transfer';
+      lat: number; lng: number;
+      routeName: string;
+      color: string;
+      nextRouteName?: string;
+      nextColor?: string;
+    }> = [];
+
+    busLegs.forEach((leg, idx) => {
+      const routeName = leg.route_name || `Ruta ${leg.route_code}`;
+      const color = busPalette[option.legs.indexOf(leg) % busPalette.length];
+
+      // Subir
+      points.push({ type: 'board', lat: leg.from.lat, lng: leg.from.lng, routeName, color });
+
+      // Transbordo (solo si hay otro bus después)
+      if (idx < busLegs.length - 1) {
+        const nextLeg = busLegs[idx + 1];
+        const nextRouteName = nextLeg.route_name || `Ruta ${nextLeg.route_code}`;
+        const nextColor = busPalette[option.legs.indexOf(nextLeg) % busPalette.length];
+        points.push({
+          type: 'transfer',
+          lat: leg.to.lat, lng: leg.to.lng,
+          routeName, color,
+          nextRouteName, nextColor,
+        });
+      }
+    });
+
+    return points;
+  })();
 
   return (
     <>
       {/* Rutas de bus */}
       {hasOption && busFeatures && busFeatures.features.length > 0 && (
         <Source id="trip-bus-routes" type="geojson" data={busFeatures}>
+          {/* Segmentos ACTIVOS — tramo que el usuario toma (sólido) */}
           <Layer
             id="trip-bus-routes-outline"
             type="line"
+            filter={['==', ['get', 'segmentType'], 'active']}
             paint={{
               'line-color': '#ffffff',
               'line-width': [
@@ -366,7 +555,7 @@ export const TripRouteLayer: React.FC<{ selectedOptionIndex: number | null }> = 
                 'case',
                 ['==', ['get', 'isActive'], true],
                 0.5,
-                0.35, // Menos transparente (antes 0.2)
+                0.35,
               ],
             }}
             layout={{
@@ -377,6 +566,7 @@ export const TripRouteLayer: React.FC<{ selectedOptionIndex: number | null }> = 
           <Layer
             id="trip-bus-routes-line"
             type="line"
+            filter={['==', ['get', 'segmentType'], 'active']}
             paint={{
               'line-color': ['get', 'color'],
               'line-width': [
@@ -389,7 +579,7 @@ export const TripRouteLayer: React.FC<{ selectedOptionIndex: number | null }> = 
                 'case',
                 ['==', ['get', 'isActive'], true],
                 0.95,
-                0.5, // Menos transparente (antes 0.25)
+                0.5,
               ],
             }}
             layout={{
@@ -397,6 +587,23 @@ export const TripRouteLayer: React.FC<{ selectedOptionIndex: number | null }> = 
               'line-join': 'round',
             }}
           />
+
+          {/* Segmentos INACTIVOS — tramo que la ruta sigue, con degradado gradual */}
+          <Layer
+            id="trip-bus-routes-inactive-line"
+            type="line"
+            filter={['==', ['get', 'segmentType'], 'inactive']}
+            paint={{
+              'line-color': ['get', 'color'],
+              'line-width': 3,
+              'line-opacity': ['get', 'fadeOpacity'],
+            }}
+            layout={{
+              'line-cap': 'round',
+              'line-join': 'round',
+            }}
+          />
+
           {env.FEATURE_ROUTE_ARROWS && (
             <Layer
               id="trip-bus-routes-arrows"
@@ -412,7 +619,7 @@ export const TripRouteLayer: React.FC<{ selectedOptionIndex: number | null }> = 
                 'icon-allow-overlap': true,
                 'icon-ignore-placement': true,
               }}
-              filter={['==', ['get', 'isActive'], true]}
+              filter={['all', ['==', ['get', 'segmentType'], 'active'], ['==', ['get', 'isActive'], true]]}
               paint={{
                 'icon-opacity': 0.95,
                 'icon-color': '#0f172a',
@@ -474,16 +681,63 @@ export const TripRouteLayer: React.FC<{ selectedOptionIndex: number | null }> = 
         </Marker>
       )}
 
-      {/* Marcadores de transbordo */}
-      {hasOption && transferStops.map((stop, idx) => (
-        <Marker key={idx} longitude={stop.lng} latitude={stop.lat}>
-          <div className="relative">
-            <div className="w-7 h-7 bg-yellow-500 rounded-full border-2 border-white shadow-lg flex items-center justify-center text-[11px] font-bold text-slate-900">
-              {idx + 1}
+      {/* Marcadores de acción: subir al bus / transbordo */}
+      {hasOption && actionPoints.map((point, idx) => (
+        <Marker key={`action-${idx}`} longitude={point.lng} latitude={point.lat} style={{ zIndex: point.type === 'transfer' ? 10 : 1 }}>
+          <div className="relative group">
+            {point.type === 'board' ? (
+              <div
+                className="w-8 h-8 rounded-full border-2 border-white shadow-lg flex items-center justify-center"
+                style={{ backgroundColor: point.color }}
+              >
+                <MdDirectionsBus className="text-white text-base" />
+              </div>
+            ) : (
+              <div className="w-9 h-9 rounded-full border-2 border-white shadow-lg flex items-center justify-center overflow-hidden"
+                style={{
+                  background: `linear-gradient(135deg, ${point.color} 50%, ${point.nextColor} 50%)`,
+                }}
+              >
+                <MdSwapHoriz className="text-white text-lg drop-shadow-md" />
+              </div>
+            )}
+            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-2 py-1 bg-primary/95 text-white text-[10px] rounded-md whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none border border-white/10 shadow-lg">
+              {point.type === 'board'
+                ? `Tomá ${point.routeName}`
+                : `Bajá de ${point.routeName}, tomá ${point.nextRouteName}`}
             </div>
           </div>
         </Marker>
       ))}
+
+      {/* Labels de ruta sobre el tramo activo */}
+      {hasOption && routeLabels.map((label, idx) => (
+        <Marker key={`label-${idx}`} longitude={label.lng} latitude={label.lat} anchor="center">
+          <div
+            className="px-2 py-0.5 rounded-full text-[11px] font-bold shadow-md pointer-events-none border border-white/30"
+            style={{ backgroundColor: label.color, color: '#ffffff' }}
+          >
+            {label.routeCode}
+          </div>
+        </Marker>
+      ))}
+
+      {/* Popup al clickear tramo inactivo */}
+      {inactivePopup && (
+        <Popup
+          longitude={inactivePopup.lng}
+          latitude={inactivePopup.lat}
+          anchor="bottom"
+          onClose={() => setInactivePopup(null)}
+          closeOnClick={false}
+          offset={12}
+        >
+          <div className="text-sm p-1">
+            <p className="font-semibold text-gray-800">{inactivePopup.routeName}</p>
+            <p className="text-xs text-gray-500 mt-1">Este tramo no es parte de tu viaje</p>
+          </div>
+        </Popup>
+      )}
     </>
   );
 };
